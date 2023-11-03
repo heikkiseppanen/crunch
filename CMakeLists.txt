@@ -17,6 +17,7 @@ set(SOURCE
 	"${ENGINE_DIR}/Window/Window.cpp"
 	"${ENGINE_DIR}/Graphics/Vulkan/API.cpp"
 	"${ENGINE_DIR}/Graphics/Vulkan/Extension.cpp"
+	"${ENGINE_DIR}/Shared/Filesystem.cpp"
 )
 
 add_executable(${PROJECT_NAME} ${SOURCE})

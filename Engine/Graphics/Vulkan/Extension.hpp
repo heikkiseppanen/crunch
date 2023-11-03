@@ -4,8 +4,15 @@
 
 namespace Vk
 {
-	VkResult bind_extension_functions(VkInstance instance);
+	// Instance extensions
+
+	VkResult bind_instance_extension_functions(VkInstance instance);
 
 	inline PFN_vkCreateDebugUtilsMessengerEXT CreateDebugUtilsMessengerEXT;
 	inline PFN_vkDestroyDebugUtilsMessengerEXT DestroyDebugUtilsMessengerEXT;
+
+	VkResult bind_device_extension_functions(VkInstance instance);
+
+	inline PFN_vkCmdBeginRendering CmdBeginRenderingKHR;
+	inline PFN_vkCmdEndRendering CmdEndRenderingKHR;
 }
