@@ -17,8 +17,13 @@ int main(int argc, char *argv[])
 
 		while (!window.should_close())
 		{
-		}
+			window.poll_events();
 
+			if (glfwGetKey(window.get_handle(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
+				window.set_to_close();
+
+			vk.proto_render_loop();
+		}
 	}
 	catch (std::exception& e)
 	{

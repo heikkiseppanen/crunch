@@ -30,6 +30,8 @@ class API
 		API(GLFWwindow* surface_context, bool enable_logs = true);
 		~API();
 
+		void proto_render_loop();
+
 	private:
 
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
@@ -70,6 +72,7 @@ class API
 
 		VkSemaphore m_image_available_semaphore;
 		VkSemaphore m_render_finished_semaphore;
+
 		VkFence m_in_flight_fence;
 
 }; // class API

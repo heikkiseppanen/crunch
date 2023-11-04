@@ -260,6 +260,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 	CR_ASSERT_THROW(m_physical_device == VK_NULL_HANDLE, "No suitable Vulkan device found.")
 
 	bind_device_extension_functions(m_instance);
+
 	vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
 	vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
 
@@ -567,41 +568,94 @@ API::API(GLFWwindow* surface_context, bool debug)
 		vkDestroyShaderModule(m_logical_device, frag_module, nullptr);
 	}
 
-	VkCommandPoolCreateInfo command_pool_info{};
-	command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	command_pool_info.queueFamilyIndex = indices.graphics;
+	VkCommandPoolCreateInfo command_pool_info
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+		.pNext = VK_NULL_HANDLE,
+		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+		.queueFamilyIndex = indices.graphics,
+	};
 
 	VK_ASSERT_RESULT(vkCreateCommandPool(m_logical_device, &command_pool_info, nullptr, &m_command_pool), "Failed to create command pool")
 
-	VkCommandBufferAllocateInfo command_buffer_info{};
-	command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	command_buffer_info.commandPool = m_command_pool;
-	command_buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
-	command_buffer_info.commandBufferCount = 1;
+	VkCommandBufferAllocateInfo command_buffer_info
+	{
+		.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.pNext              = VK_NULL_HANDLE,
+		.commandPool        = m_command_pool,
+		.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY, // Submit to queue, cannot be called from other buffers
+		.commandBufferCount = 1,
+	};
 
 	VK_ASSERT_RESULT(vkAllocateCommandBuffers(m_logical_device, &command_buffer_info, &m_command_buffer), "Failed to allocate command buffer") 
 	
-	VkSemaphoreCreateInfo semaphore_info{};
-	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	VkSemaphoreCreateInfo semaphore_info
+	{
+		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+		.pNext = VK_NULL_HANDLE,
+		.flags = 0,
+	};
 
-	VkFenceCreateInfo fence_info{};
-	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	VkFenceCreateInfo fence_info
+	{
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.pNext = VK_NULL_HANDLE,
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT,
+	};
 
 	VK_ASSERT_RESULT((vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_image_available_semaphore) |
 	                  vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_render_finished_semaphore) |
 	                  vkCreateFence(m_logical_device, &fence_info, nullptr, &m_in_flight_fence)), "Failed to create semaphores")
 
-	// RENDER
+	CR_INFO("Vulkan initialized")
+}
+
+API::~API()
+{
+	vkWaitForFences(m_logical_device, 1, &m_in_flight_fence, VK_TRUE, std::numeric_limits<u64>::max());
+	vkDestroyFence(m_logical_device, m_in_flight_fence, nullptr);
+
+	vkDestroySemaphore(m_logical_device, m_image_available_semaphore, nullptr);
+	vkDestroySemaphore(m_logical_device, m_render_finished_semaphore, nullptr);
+
+	vkDestroyCommandPool(m_logical_device, m_command_pool, nullptr);
+
+	vkDestroyPipeline(m_logical_device, m_graphics_pipeline, nullptr);
+	vkDestroyPipelineLayout(m_logical_device, m_pipeline_layout, nullptr);
+
+	for (auto image_view : m_swap_image_views)
+	{
+		vkDestroyImageView(m_logical_device, image_view, nullptr);
+	}
+
+	vkDestroySwapchainKHR(m_logical_device, m_swap_chain, nullptr);
+
+	vkDestroyDevice(m_logical_device, nullptr);
+
+	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+
+	Vk::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
+
+	vkDestroyInstance(m_instance, nullptr);
+}
+
+void API::proto_render_loop()
+{
+	VK_ASSERT_RESULT(vkWaitForFences(m_logical_device, 1, &m_in_flight_fence, VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
+	VK_ASSERT_RESULT(vkResetFences(m_logical_device, 1, &m_in_flight_fence), "Failed to reset renderloop fence")
 
 	u32 image_index;
 	VK_ASSERT_RESULT(vkAcquireNextImageKHR(m_logical_device, m_swap_chain, std::numeric_limits<u64>::max(), m_image_available_semaphore, VK_NULL_HANDLE, &image_index), "Failed to acquire next image")
 
-	VkCommandBufferBeginInfo begin_info{};
-	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.flags = 0;
-	begin_info.pInheritanceInfo = VK_NULL_HANDLE;
+	VkCommandBufferBeginInfo begin_info
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.pNext = VK_NULL_HANDLE,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+		.pInheritanceInfo = VK_NULL_HANDLE
+	};
 
+//	VK_ASSERT_RESULT(vkResetCommandBuffer(m_command_buffer, 0), "Failed to reset command buffer")
 	VK_ASSERT_RESULT(vkBeginCommandBuffer(m_command_buffer, &begin_info), "Failed to begin recording command buffer")
 
 	VkRenderingAttachmentInfoKHR render_attachment_info{};
@@ -620,18 +674,25 @@ API::API(GLFWwindow* surface_context, bool debug)
 	render_info.pColorAttachments = &render_attachment_info;
 
 	{
-		VkImageMemoryBarrier image_memory_barrier{};
-		image_memory_barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		image_memory_barrier.srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		image_memory_barrier.oldLayout        = VK_IMAGE_LAYOUT_UNDEFINED;
-		image_memory_barrier.newLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		image_memory_barrier.image            = m_swap_images[image_index];
-		image_memory_barrier.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
+		VkImageMemoryBarrier image_memory_barrier
+		{
+			.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.pNext               = VK_NULL_HANDLE,
+			.srcAccessMask       = VK_ACCESS_NONE,
+			.dstAccessMask       = VK_ACCESS_NONE,
+			.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+			.newLayout           = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.srcQueueFamilyIndex = 0,
+			.dstQueueFamilyIndex = 0,
+			.image               = m_swap_images[image_index],
+			.subresourceRange
+			{
+				.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel    = 0,
+				.levelCount      = 1,
+				.baseArrayLayer  = 0,
+				.layerCount      = 1,
+			},
 		};
 
 		vkCmdPipelineBarrier(
@@ -640,8 +701,6 @@ API::API(GLFWwindow* surface_context, bool debug)
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 	}
-
-	Vk::CmdBeginRenderingKHR(m_command_buffer, &render_info);
 
 	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
 
@@ -661,23 +720,32 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
 
+	Vk::CmdBeginRenderingKHR(m_command_buffer, &render_info);
+
 	vkCmdDraw(m_command_buffer, 3, 1, 0, 0);
 
 	Vk::CmdEndRenderingKHR(m_command_buffer);
 
 	{
-		VkImageMemoryBarrier image_memory_barrier{};
-		image_memory_barrier.sType            = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		image_memory_barrier.srcAccessMask    = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		image_memory_barrier.oldLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		image_memory_barrier.newLayout        = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		image_memory_barrier.image            = m_swap_images[image_index];
-		image_memory_barrier.subresourceRange = {
-			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-			.baseMipLevel = 0,
-			.levelCount = 1,
-			.baseArrayLayer = 0,
-			.layerCount = 1,
+		VkImageMemoryBarrier image_memory_barrier
+		{
+			.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			.pNext               = VK_NULL_HANDLE,
+			.srcAccessMask       = VK_ACCESS_NONE,
+			.dstAccessMask       = VK_ACCESS_NONE,
+			.oldLayout           = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+			.newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			.srcQueueFamilyIndex = 0,
+			.dstQueueFamilyIndex = 0,
+			.image               = m_swap_images[image_index],
+			.subresourceRange
+			{
+				.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel    = 0,
+				.levelCount      = 1,
+				.baseArrayLayer  = 0,
+				.layerCount      = 1,
+			},
 		};
 
 		vkCmdPipelineBarrier(
@@ -713,26 +781,6 @@ API::API(GLFWwindow* surface_context, bool debug)
 	present_info.pResults = nullptr;
 
 	VK_ASSERT_RESULT(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present")
-
-	CR_INFO("So far so good..")
-}
-
-API::~API()
-{
-	vkDestroyFence(m_logical_device, m_in_flight_fence, nullptr);
-	vkDestroySemaphore(m_logical_device, m_image_available_semaphore, nullptr);
-	vkDestroySemaphore(m_logical_device, m_render_finished_semaphore, nullptr);
-	vkDestroyCommandPool(m_logical_device, m_command_pool, nullptr);
-	vkDestroyPipelineLayout(m_logical_device, m_pipeline_layout, nullptr);
-	for (auto image_view : m_swap_image_views)
-	{
-		vkDestroyImageView(m_logical_device, image_view, nullptr);
-	}
-	vkDestroySwapchainKHR(m_logical_device, m_swap_chain, nullptr);
-	vkDestroyDevice(m_logical_device, nullptr);
-	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-	Vk::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
-	vkDestroyInstance(m_instance, nullptr);
 }
 
 VkShaderModule API::create_module(const std::string& path)
