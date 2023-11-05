@@ -39,3 +39,5 @@ using f64 = double;
 #define CR_INFO(MSG)  CR_LOG(stdout, CR_TERM_DEFAULT, MSG)
 #define CR_WARN(MSG)  CR_LOG(stderr, CR_TERM_YELLOW, MSG)
 #define CR_ERROR(MSG) CR_LOG(stderr, CR_TERM_RED, MSG)
+
+#define CR_ARR_SIZE(arr) (sizeof(arr) / sizeof(*arr))

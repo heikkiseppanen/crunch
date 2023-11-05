@@ -2,6 +2,7 @@
 
 #include "Crunch.hpp"
 
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <string>
@@ -28,7 +29,7 @@ public:
 	inline bool should_close() const noexcept { return glfwWindowShouldClose(m_handle); };
 	inline void set_to_close() const noexcept { glfwSetWindowShouldClose(m_handle, GLFW_TRUE); };
 
-	inline GLFWwindow* get_handle() const noexcept { return m_handle; };
+	constexpr inline GLFWwindow* get_handle() const noexcept { return m_handle; };
 
 }; // class Window
 

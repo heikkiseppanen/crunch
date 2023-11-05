@@ -2,7 +2,11 @@
 
 #include "Crunch.hpp"
 
-#include <vulkan/vulkan.h>
+#include "Graphics/Vulkan/Allocator.hpp"
+#include "Graphics/Mesh.hpp"
+
+// Shouldn't need GLFW in this header preferably...
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <vector>
@@ -44,6 +48,8 @@ class API
 
 		VkInstance m_instance;
 
+		VmaAllocator m_allocator;
+
 		VkSurfaceKHR m_surface;
 
 		VkDebugUtilsMessengerEXT m_debug_messenger;
@@ -59,21 +65,32 @@ class API
 		VkQueue m_presentation_queue;
 
 		VkSwapchainKHR m_swap_chain;
+
 		std::vector<VkImage> m_swap_images;
 		std::vector<VkImageView> m_swap_image_views;
+
 		VkFormat m_swap_format;
 		VkExtent2D m_swap_extent;
 
 		VkPipelineLayout m_pipeline_layout;
 		VkPipeline m_graphics_pipeline;
 
+		u32 m_frames_in_flight = 2;
+		u32 m_current_frame = 0;
+
 		VkCommandPool m_command_pool;
-		VkCommandBuffer m_command_buffer;
 
-		VkSemaphore m_image_available_semaphore;
-		VkSemaphore m_render_finished_semaphore;
+		std::vector<VkCommandBuffer> m_command_buffer;
 
-		VkFence m_in_flight_fence;
+		std::vector<VkSemaphore> m_image_available_semaphore;
+		std::vector<VkSemaphore> m_render_finished_semaphore;
+
+		std::vector<VkFence> m_in_flight_fence;
+
+		VkBuffer m_vertex_buffer;
+		VkBuffer m_index_buffer;
+		VmaAllocation m_vertex_allocation;
+		VmaAllocation m_index_allocation;
 
 }; // class API
 

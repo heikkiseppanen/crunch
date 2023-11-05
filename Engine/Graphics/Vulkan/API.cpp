@@ -1,4 +1,5 @@
 #include "Graphics/Vulkan/API.hpp"
+
 #include "Graphics/Vulkan/Extension.hpp"
 
 #include "Shared/Filesystem.hpp"
@@ -11,7 +12,7 @@
 #include <limits>
 #include <set>
 
-#define VK_ASSERT_RESULT(RESULT, MSG) CR_ASSERT_THROW((RESULT) != VK_SUCCESS, MSG)
+#define VK_ASSERT_RESULT(RESULT, MSG) CR_ASSERT_THROW((RESULT) < 0, MSG)
 
 namespace Vk
 {
@@ -142,6 +143,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 		VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+		VK_KHR_MAINTENANCE1_EXTENSION_NAME
 	};
 
 	// Should maybe pack these and other useful information some GPU info structure
@@ -165,7 +167,8 @@ API::API(GLFWwindow* surface_context, bool debug)
 		vkGetPhysicalDeviceProperties(device, &properties);
 		vkGetPhysicalDeviceFeatures(device, &features);
 
-		if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+		    properties.apiVersion <  VK_VERSION_1_3)
 			continue;
 
 		// Confirm queue families
@@ -313,6 +316,25 @@ API::API(GLFWwindow* surface_context, bool debug)
 	vkGetDeviceQueue(m_logical_device, indices.graphics, 0, &m_graphics_queue);
 	vkGetDeviceQueue(m_logical_device, indices.presentation, 0, &m_presentation_queue);
 
+	// Initialize Vulkan Memory Allocator
+
+	VmaAllocatorCreateInfo allocator_info
+	{
+		.flags = 0,
+		.physicalDevice = m_physical_device,
+		.device = m_logical_device,
+		.preferredLargeHeapBlockSize = 0,
+		.pAllocationCallbacks = nullptr,
+		.pDeviceMemoryCallbacks = nullptr,
+		.pHeapSizeLimit = nullptr,
+		.pVulkanFunctions = nullptr,
+		.instance = m_instance,
+		.vulkanApiVersion = 0,
+		.pTypeExternalMemoryHandleTypes = nullptr,
+	};
+
+	VK_ASSERT_RESULT(vmaCreateAllocator(&allocator_info, &m_allocator), "Failed to initialize VulkanMemoryAllocator")
+
 	// Select swap chain format
 
 	VkSurfaceFormatKHR surface_format;
@@ -357,10 +379,14 @@ API::API(GLFWwindow* surface_context, bool debug)
 	}
 
 	// Get number for images for swap chain
-	u32 image_count = swap_chain_details.capabilities.minImageCount + 1;
+	u32 image_count;
 	if (swap_chain_details.capabilities.maxImageCount != 0)
 	{
-		image_count = std::min(image_count, swap_chain_details.capabilities.maxImageCount);
+		image_count = std::clamp(4u, swap_chain_details.capabilities.minImageCount, swap_chain_details.capabilities.maxImageCount);
+	}
+	else
+	{
+		image_count = std::min(swap_chain_details.capabilities.minImageCount + 1, swap_chain_details.capabilities.maxImageCount);
 	}
 
 	// Create swap chain
@@ -452,12 +478,42 @@ API::API(GLFWwindow* surface_context, bool debug)
 		dynamic_state_info.dynamicStateCount = static_cast<u32>(dynamic_states.size());
 		dynamic_state_info.pDynamicStates = dynamic_states.data();
 
-		VkPipelineVertexInputStateCreateInfo vertex_input_info{};
-		vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertex_input_info.vertexBindingDescriptionCount = 0;
-		vertex_input_info.pVertexBindingDescriptions = nullptr;
-		vertex_input_info.vertexAttributeDescriptionCount = 0;
-		vertex_input_info.pVertexAttributeDescriptions = nullptr;
+		// TEMP MESH
+
+		VkVertexInputBindingDescription bind_descriptor
+		{
+			.binding = 0,
+			.stride = sizeof(Cr::Vertex),
+			.inputRate =VK_VERTEX_INPUT_RATE_VERTEX,
+		};
+
+
+		VkVertexInputAttributeDescription attribute_descriptor[]
+		{
+			{
+				.location = 0,
+				.binding = 0,
+				.format = VK_FORMAT_R32G32B32_SFLOAT,
+				.offset = offsetof(Cr::Vertex, position)
+			},
+			{
+				.location = 1,
+				.binding = 0,
+				.format = VK_FORMAT_R32G32_SFLOAT,
+				.offset = offsetof(Cr::Vertex, uv)
+			},
+		};
+
+		VkPipelineVertexInputStateCreateInfo vertex_input_info
+		{
+			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+			.pNext = VK_NULL_HANDLE,
+			.flags = 0,
+			.vertexBindingDescriptionCount   = 1,
+			.pVertexBindingDescriptions      = &bind_descriptor,
+			.vertexAttributeDescriptionCount = 2,
+			.pVertexAttributeDescriptions    = attribute_descriptor,
+		};
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info{};
 		input_assembly_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -466,9 +522,9 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 		VkViewport viewport{};
 		viewport.x = 0.0f;
-		viewport.y = 0.0f;
+		viewport.y = m_swap_extent.width;
 		viewport.width = float(m_swap_extent.width);
-		viewport.height = float(m_swap_extent.height);
+		viewport.height = -float(m_swap_extent.height);
 		viewport.minDepth = 0.0f;
 		viewport.maxDepth = 1.0f;
 
@@ -489,7 +545,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		rasterizer_info.rasterizerDiscardEnable = VK_FALSE;
 		rasterizer_info.polygonMode = VK_POLYGON_MODE_FILL;
 		rasterizer_info.lineWidth = 1.0f;
-		rasterizer_info.cullMode = VK_CULL_MODE_BACK_BIT;
+		rasterizer_info.cullMode = VK_CULL_MODE_NONE;
 		rasterizer_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
 		rasterizer_info.depthBiasEnable = VK_FALSE;
 		rasterizer_info.depthBiasConstantFactor = 0.0f;
@@ -543,6 +599,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		pipeline_rendering_info.colorAttachmentCount = 1;
 		pipeline_rendering_info.pColorAttachmentFormats = &m_swap_format;
 
+
 		VkGraphicsPipelineCreateInfo pipeline_info{};
 		pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipeline_info.pNext               = &pipeline_rendering_info;
@@ -578,17 +635,83 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	VK_ASSERT_RESULT(vkCreateCommandPool(m_logical_device, &command_pool_info, nullptr, &m_command_pool), "Failed to create command pool")
 
+	// Create cube mesh
+
+	{
+		std::vector<Cr::Vertex> cube_vertices = Cr::get_cube_vertices(1.0f);
+		std::vector<u32> cube_indices = Cr::get_cube_indices();
+
+		VkBufferCreateInfo vertex_buffer_info
+		{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.pNext = VK_NULL_HANDLE,
+			.flags = 0,
+			.size  = sizeof(cube_vertices[0]) * cube_vertices.size(),
+			.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.queueFamilyIndexCount = 0,
+			.pQueueFamilyIndices = VK_NULL_HANDLE,
+		};
+
+		VkBufferCreateInfo index_buffer_info
+		{
+			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+			.pNext = VK_NULL_HANDLE,
+			.flags = 0,
+			.size  = sizeof(cube_indices[0]) * cube_indices.size(),
+			.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+			.queueFamilyIndexCount = 0,
+			.pQueueFamilyIndices = VK_NULL_HANDLE,
+		};
+
+		VmaAllocationCreateInfo alloc_info
+		{
+			.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+			.usage = VMA_MEMORY_USAGE_AUTO,
+			.requiredFlags = 0,
+			.preferredFlags = 0,
+			.memoryTypeBits = 0,
+			.pool = nullptr,
+			.pUserData = nullptr,
+			.priority = 0
+		};
+
+		VK_ASSERT_RESULT(vmaCreateBuffer(m_allocator, &vertex_buffer_info, &alloc_info, &m_vertex_buffer, &m_vertex_allocation, nullptr), "Failed to create vertex buffer")
+		VK_ASSERT_RESULT(vmaCreateBuffer(m_allocator, &index_buffer_info, &alloc_info, &m_index_buffer, &m_index_allocation, nullptr), "Failed to create index buffer")
+
+		void *data;
+
+		VK_ASSERT_RESULT(vmaMapMemory(m_allocator, m_vertex_allocation, &data), "Failed to map vertex_buffer");
+		std::copy(cube_vertices.cbegin(), cube_vertices.cend(), static_cast<Cr::Vertex*>(data));
+		vmaUnmapMemory(m_allocator, m_vertex_allocation);
+
+		VK_ASSERT_RESULT(vmaMapMemory(m_allocator, m_index_allocation, &data), "Failed to map index_buffer");
+		std::copy(cube_indices.cbegin(), cube_indices.cend(), static_cast<u32*>(data));
+		vmaUnmapMemory(m_allocator, m_index_allocation);
+
+		VK_ASSERT_RESULT(vmaFlushAllocation(m_allocator, m_vertex_allocation, 0, VK_WHOLE_SIZE), "Failed to flush vertex allocation")
+		VK_ASSERT_RESULT(vmaFlushAllocation(m_allocator, m_index_allocation, 0, VK_WHOLE_SIZE), "Failed to flush index allocation")
+	}
+
+	// Create command buffers and sync objects
+
+	m_command_buffer.resize(m_frames_in_flight);
+	m_image_available_semaphore.resize(m_frames_in_flight);
+	m_render_finished_semaphore.resize(m_frames_in_flight);
+	m_in_flight_fence.resize(m_frames_in_flight);
+
 	VkCommandBufferAllocateInfo command_buffer_info
 	{
 		.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.pNext              = VK_NULL_HANDLE,
 		.commandPool        = m_command_pool,
 		.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY, // Submit to queue, cannot be called from other buffers
-		.commandBufferCount = 1,
+		.commandBufferCount = static_cast<u32>(m_command_buffer.size()),
 	};
 
-	VK_ASSERT_RESULT(vkAllocateCommandBuffers(m_logical_device, &command_buffer_info, &m_command_buffer), "Failed to allocate command buffer") 
-	
+	VK_ASSERT_RESULT(vkAllocateCommandBuffers(m_logical_device, &command_buffer_info, m_command_buffer.data()), "Failed to allocate command buffer") 
+
 	VkSemaphoreCreateInfo semaphore_info
 	{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
@@ -603,20 +726,37 @@ API::API(GLFWwindow* surface_context, bool debug)
 		.flags = VK_FENCE_CREATE_SIGNALED_BIT,
 	};
 
-	VK_ASSERT_RESULT((vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_image_available_semaphore) |
-	                  vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_render_finished_semaphore) |
-	                  vkCreateFence(m_logical_device, &fence_info, nullptr, &m_in_flight_fence)), "Failed to create semaphores")
+	for (std::size_t frame = 0; frame < m_frames_in_flight; ++frame)
+	{
+		VK_ASSERT_RESULT((vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_image_available_semaphore[frame]) |
+						  vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_render_finished_semaphore[frame]) |
+						  vkCreateFence(m_logical_device, &fence_info, nullptr, &m_in_flight_fence[frame])), "Failed to create semaphores")
+	}
 
 	CR_INFO("Vulkan initialized")
 }
 
 API::~API()
 {
-	vkWaitForFences(m_logical_device, 1, &m_in_flight_fence, VK_TRUE, std::numeric_limits<u64>::max());
-	vkDestroyFence(m_logical_device, m_in_flight_fence, nullptr);
+	vkDeviceWaitIdle(m_logical_device);
 
-	vkDestroySemaphore(m_logical_device, m_image_available_semaphore, nullptr);
-	vkDestroySemaphore(m_logical_device, m_render_finished_semaphore, nullptr);
+	vmaDestroyBuffer(m_allocator, m_index_buffer, m_index_allocation); 
+	vmaDestroyBuffer(m_allocator, m_vertex_buffer, m_vertex_allocation); 
+
+	for (auto fence : m_in_flight_fence)
+	{
+		vkDestroyFence(m_logical_device, fence, nullptr);
+	}
+
+	for (auto semaphore : m_image_available_semaphore)
+	{
+		vkDestroySemaphore(m_logical_device, semaphore, nullptr);
+	}
+
+	for (auto semaphore : m_render_finished_semaphore)
+	{
+		vkDestroySemaphore(m_logical_device, semaphore, nullptr);
+	}
 
 	vkDestroyCommandPool(m_logical_device, m_command_pool, nullptr);
 
@@ -630,6 +770,8 @@ API::~API()
 
 	vkDestroySwapchainKHR(m_logical_device, m_swap_chain, nullptr);
 
+	vmaDestroyAllocator(m_allocator);
+
 	vkDestroyDevice(m_logical_device, nullptr);
 
 	vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
@@ -641,11 +783,11 @@ API::~API()
 
 void API::proto_render_loop()
 {
-	VK_ASSERT_RESULT(vkWaitForFences(m_logical_device, 1, &m_in_flight_fence, VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
-	VK_ASSERT_RESULT(vkResetFences(m_logical_device, 1, &m_in_flight_fence), "Failed to reset renderloop fence")
+	VK_ASSERT_RESULT(vkWaitForFences(m_logical_device, 1, &m_in_flight_fence[m_current_frame], VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
+	VK_ASSERT_RESULT(vkResetFences(m_logical_device, 1, &m_in_flight_fence[m_current_frame]), "Failed to reset renderloop fence")
 
 	u32 image_index;
-	VK_ASSERT_RESULT(vkAcquireNextImageKHR(m_logical_device, m_swap_chain, std::numeric_limits<u64>::max(), m_image_available_semaphore, VK_NULL_HANDLE, &image_index), "Failed to acquire next image")
+	VK_ASSERT_RESULT(vkAcquireNextImageKHR(m_logical_device, m_swap_chain, std::numeric_limits<u64>::max(), m_image_available_semaphore[m_current_frame], VK_NULL_HANDLE, &image_index), "Failed to acquire next image")
 
 	VkCommandBufferBeginInfo begin_info
 	{
@@ -656,7 +798,7 @@ void API::proto_render_loop()
 	};
 
 //	VK_ASSERT_RESULT(vkResetCommandBuffer(m_command_buffer, 0), "Failed to reset command buffer")
-	VK_ASSERT_RESULT(vkBeginCommandBuffer(m_command_buffer, &begin_info), "Failed to begin recording command buffer")
+	VK_ASSERT_RESULT(vkBeginCommandBuffer(m_command_buffer[m_current_frame], &begin_info), "Failed to begin recording command buffer")
 
 	VkRenderingAttachmentInfoKHR render_attachment_info{};
 	render_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -696,35 +838,40 @@ void API::proto_render_loop()
 		};
 
 		vkCmdPipelineBarrier(
-			m_command_buffer,
+			m_command_buffer[m_current_frame],
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 	}
 
-	vkCmdBindPipeline(m_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
+	vkCmdBindPipeline(m_command_buffer[m_current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
-	viewport.y = 0.0f;
+	viewport.y = float(m_swap_extent.height); // Offset flipped viewport
 	viewport.width = float(m_swap_extent.width);
-	viewport.height = float(m_swap_extent.height);
+	viewport.height = -float(m_swap_extent.height); // Flip viewport
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
-	vkCmdSetViewport(m_command_buffer, 0, 1, &viewport);
+	vkCmdSetViewport(m_command_buffer[m_current_frame], 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = {};
 	scissor.extent = m_swap_extent;
 
-	vkCmdSetScissor(m_command_buffer, 0, 1, &scissor);
+	vkCmdSetScissor(m_command_buffer[m_current_frame], 0, 1, &scissor);
 
-	Vk::CmdBeginRenderingKHR(m_command_buffer, &render_info);
+	vkCmdBindPipeline(m_command_buffer[m_current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
 
-	vkCmdDraw(m_command_buffer, 3, 1, 0, 0);
+	VkDeviceSize offsets[] {0};
+	vkCmdBindVertexBuffers(m_command_buffer[m_current_frame], 0, 1, &m_vertex_buffer, offsets); 
 
-	Vk::CmdEndRenderingKHR(m_command_buffer);
+	Vk::CmdBeginRenderingKHR(m_command_buffer[m_current_frame], &render_info);
+
+	vkCmdDraw(m_command_buffer[m_current_frame], 16, 1, 0, 0);
+
+	Vk::CmdEndRenderingKHR(m_command_buffer[m_current_frame]);
 
 	{
 		VkImageMemoryBarrier image_memory_barrier
@@ -749,38 +896,41 @@ void API::proto_render_loop()
 		};
 
 		vkCmdPipelineBarrier(
-			m_command_buffer,
+			m_command_buffer[m_current_frame],
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 	}
 
-	VK_ASSERT_RESULT(vkEndCommandBuffer(m_command_buffer), "Failed to end recording command buffer")
+	VK_ASSERT_RESULT(vkEndCommandBuffer(m_command_buffer[m_current_frame]), "Failed to end recording command buffer")
 
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 	VkSubmitInfo submit_info{};
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = &m_image_available_semaphore;
+	submit_info.pWaitSemaphores = &m_image_available_semaphore[m_current_frame];
 	submit_info.pWaitDstStageMask = &wait_stage;
 	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers = &m_command_buffer;
+	submit_info.pCommandBuffers = &m_command_buffer[m_current_frame];
 	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = &m_render_finished_semaphore;
+	submit_info.pSignalSemaphores = &m_render_finished_semaphore[m_current_frame];
 
-	VK_ASSERT_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submit_info, m_in_flight_fence), "Failed to submit draw command buffer")
+	VK_ASSERT_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submit_info, m_in_flight_fence[m_current_frame]), "Failed to submit draw command buffer")
 
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	present_info.waitSemaphoreCount =1;
-	present_info.pWaitSemaphores = &m_render_finished_semaphore;
+	present_info.pWaitSemaphores = &m_render_finished_semaphore[m_current_frame];
 	present_info.swapchainCount = 1;
 	present_info.pSwapchains = &m_swap_chain;
 	present_info.pImageIndices = &image_index;
 	present_info.pResults = nullptr;
 
 	VK_ASSERT_RESULT(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present")
+
+	if (++m_current_frame == m_frames_in_flight)
+		m_current_frame = 0;
 }
 
 VkShaderModule API::create_module(const std::string& path)

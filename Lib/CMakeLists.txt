@@ -11,9 +11,13 @@ set( GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Lib only" FORCE)
 set( GLFW_BUILD_DOCS OFF CACHE BOOL "Lib only" FORCE)
 set( GLFW_INSTALL OFF CACHE BOOL "Lib only" FORCE)
 
-add_subdirectory(GLFW)
+add_subdirectory( GLFW )
 
-target_link_libraries(${PROJECT_NAME} vulkan glfw)
+target_link_libraries(${PROJECT_NAME}
+		PUBLIC
+			vulkan
+			glfw
+)
 
 
 

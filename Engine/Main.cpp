@@ -1,6 +1,5 @@
-#include "Window/Window.hpp"
-
 #include "Graphics/Vulkan/API.hpp"
+#include "Window/Window.hpp"
 
 #include <iostream>
 
