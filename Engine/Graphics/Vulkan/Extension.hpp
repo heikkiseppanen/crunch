@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan_core.h>
 
-namespace Vk
+namespace Cr::Vk
 {
 	// Instance extensions
 

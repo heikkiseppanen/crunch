@@ -18,6 +18,7 @@ set(SOURCE
 	"${ENGINE_DIR}/Graphics/Vulkan/API.cpp"
 	"${ENGINE_DIR}/Graphics/Vulkan/Allocator.cpp"
 	"${ENGINE_DIR}/Graphics/Vulkan/Extension.cpp"
+	"${ENGINE_DIR}/Graphics/Vulkan/Buffer.cpp"
 	"${ENGINE_DIR}/Graphics/Mesh.cpp"
 	"${ENGINE_DIR}/Shared/Filesystem.cpp"
 )
@@ -32,4 +33,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Lib")
 
-target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Werror -Wextra)
+target_compile_options(${PROJECT_NAME} PUBLIC -g -Wall -Werror -Wextra)

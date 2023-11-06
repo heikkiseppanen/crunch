@@ -1,8 +1,9 @@
 #include "Graphics/Vulkan/API.hpp"
-
 #include "Graphics/Vulkan/Extension.hpp"
 
 #include "Shared/Filesystem.hpp"
+
+#include "Graphics/Vulkan/Debug.hpp"
 
 #include <cstring>
 #include <iostream>
@@ -12,9 +13,7 @@
 #include <limits>
 #include <set>
 
-#define VK_ASSERT_RESULT(RESULT, MSG) CR_ASSERT_THROW((RESULT) < 0, MSG)
-
-namespace Vk
+namespace Cr::Vk
 {
 
 VKAPI_ATTR VkBool32 VKAPI_CALL API::debug_callback(
@@ -69,10 +68,10 @@ API::API(GLFWwindow* surface_context, bool debug)
 		validation_layers.push_back("VK_LAYER_KHRONOS_validation");
 
 		u32 available_layer_count;
-		VK_ASSERT_RESULT(vkEnumerateInstanceLayerProperties(&available_layer_count, nullptr), "Failed to get VkLayerProperties") 
+		VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, nullptr), "Failed to get VkLayerProperties") 
 
 		std::vector<VkLayerProperties> available_layers(available_layer_count);
-		VK_ASSERT_RESULT(vkEnumerateInstanceLayerProperties(&available_layer_count, available_layers.data()), "Failed to get VkLayerProperties") 
+		VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, available_layers.data()), "Failed to get VkLayerProperties") 
 
 		for (auto it = validation_layers.begin(); it != validation_layers.end(); ++it)
 		{
@@ -110,10 +109,10 @@ API::API(GLFWwindow* surface_context, bool debug)
 	instance_info.enabledExtensionCount   = static_cast<u32>(instance_extensions.size());
 	instance_info.ppEnabledExtensionNames = instance_extensions.data();
 
-	VK_ASSERT_RESULT(vkCreateInstance(&instance_info, nullptr, &m_instance), "Failed to create Vulkan instance.")
+	VK_ASSERT_THROW(vkCreateInstance(&instance_info, nullptr, &m_instance), "Failed to create Vulkan instance.")
 
 	// Need to do device extension stuff separately?
-	VK_ASSERT_RESULT(Vk::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls")
+	VK_ASSERT_THROW(Vk::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls")
 
 	if (debug == true)
 	{
@@ -130,10 +129,10 @@ API::API(GLFWwindow* surface_context, bool debug)
 		debug_messenger_info.pfnUserCallback = API::debug_callback;
 		debug_messenger_info.pUserData       = nullptr;
 
-		VK_ASSERT_RESULT(Vk::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger")
+		VK_ASSERT_THROW(Vk::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger")
 	}
 
-	VK_ASSERT_RESULT(glfwCreateWindowSurface(m_instance, surface_context, nullptr, &m_surface), "Failed to create Vulkan surface") 
+	VK_ASSERT_THROW(glfwCreateWindowSurface(m_instance, surface_context, nullptr, &m_surface), "Failed to create Vulkan surface") 
 
 	// Physical device
 
@@ -151,10 +150,10 @@ API::API(GLFWwindow* surface_context, bool debug)
 	SwapChainSupportDetails swap_chain_details{};
 
 	u32 device_count;
-	VK_ASSERT_RESULT(vkEnumeratePhysicalDevices(m_instance, &device_count, nullptr), "Failed to get fetch devices");
+	VK_ASSERT_THROW(vkEnumeratePhysicalDevices(m_instance, &device_count, nullptr), "Failed to get fetch devices");
 
 	std::vector<VkPhysicalDevice> device_list{device_count};
-	VK_ASSERT_RESULT(vkEnumeratePhysicalDevices(m_instance, &device_count, device_list.data()), "Failed to get fetch devices");
+	VK_ASSERT_THROW(vkEnumeratePhysicalDevices(m_instance, &device_count, device_list.data()), "Failed to get fetch devices");
 
 	m_physical_device = VK_NULL_HANDLE;
 	for (auto& device : device_list)
@@ -234,24 +233,24 @@ API::API(GLFWwindow* surface_context, bool debug)
 		}
 
 		// Confirm Swap chain support
-		VK_ASSERT_RESULT(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &swap_chain_details.capabilities), "Failed to fetch physical device surface capabilities")
+		VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &swap_chain_details.capabilities), "Failed to fetch physical device surface capabilities")
 
 		u32 format_count;
-		VK_ASSERT_RESULT(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, nullptr), "Failed to get physical device surface format count")
+		VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, nullptr), "Failed to get physical device surface format count")
 		
 		if (format_count > 0)
 		{
 			swap_chain_details.formats.resize(format_count);
-			VK_ASSERT_RESULT(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, swap_chain_details.formats.data()), "Failed to get physical device surface formats")
+			VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, swap_chain_details.formats.data()), "Failed to get physical device surface formats")
 		}
 
 		u32 present_mode_count;
-		VK_ASSERT_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, nullptr), "Failed to get physical device surface present_mode count")
+		VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, nullptr), "Failed to get physical device surface present_mode count")
 		
 		if (present_mode_count > 0)
 		{
 			swap_chain_details.present_modes.resize(present_mode_count);
-			VK_ASSERT_RESULT(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, swap_chain_details.present_modes.data()), "Failed to get physical device surface present_modes")
+			VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, swap_chain_details.present_modes.data()), "Failed to get physical device surface present_modes")
 		}
 
 		if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty())
@@ -311,7 +310,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		logical_device_info.enabledLayerCount   = static_cast<u32>(validation_layers.size());
 	}
 
-	VK_ASSERT_RESULT(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_logical_device), "Failed to create logical device")
+	VK_ASSERT_THROW(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_logical_device), "Failed to create logical device")
 
 	vkGetDeviceQueue(m_logical_device, indices.graphics, 0, &m_graphics_queue);
 	vkGetDeviceQueue(m_logical_device, indices.presentation, 0, &m_presentation_queue);
@@ -333,7 +332,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		.pTypeExternalMemoryHandleTypes = nullptr,
 	};
 
-	VK_ASSERT_RESULT(vmaCreateAllocator(&allocator_info, &m_allocator), "Failed to initialize VulkanMemoryAllocator")
+	VK_ASSERT_THROW(vmaCreateAllocator(&allocator_info, &m_allocator), "Failed to initialize VulkanMemoryAllocator")
 
 	// Select swap chain format
 
@@ -418,16 +417,16 @@ API::API(GLFWwindow* surface_context, bool debug)
 		swap_chain_info.pQueueFamilyIndices   = temp_indices; 
 	}
 
-	VK_ASSERT_RESULT(vkCreateSwapchainKHR(m_logical_device, &swap_chain_info, nullptr, &m_swap_chain), "Failed to create a swap chain.")
+	VK_ASSERT_THROW(vkCreateSwapchainKHR(m_logical_device, &swap_chain_info, nullptr, &m_swap_chain), "Failed to create a swap chain.")
 	m_swap_format = surface_format.format;
 	m_swap_extent = swap_extent;
 
 	// Get the imaegs of the swap chain 
 
 	u32 swap_image_count;
-	VK_ASSERT_RESULT(vkGetSwapchainImagesKHR(m_logical_device, m_swap_chain, &swap_image_count, nullptr), "Failed to fetch swap chain image count");
+	VK_ASSERT_THROW(vkGetSwapchainImagesKHR(m_logical_device, m_swap_chain, &swap_image_count, nullptr), "Failed to fetch swap chain image count");
 	m_swap_images.resize(swap_image_count);
-	VK_ASSERT_RESULT(vkGetSwapchainImagesKHR(m_logical_device, m_swap_chain, &swap_image_count, m_swap_images.data()), "Failed to fetch swap chain images");
+	VK_ASSERT_THROW(vkGetSwapchainImagesKHR(m_logical_device, m_swap_chain, &swap_image_count, m_swap_images.data()), "Failed to fetch swap chain images");
 
 	m_swap_image_views.resize(m_swap_images.size());
 
@@ -448,14 +447,14 @@ API::API(GLFWwindow* surface_context, bool debug)
 		image_info.subresourceRange.baseArrayLayer = 0;
 		image_info.subresourceRange.layerCount     = 1;
 		
-		VK_ASSERT_RESULT(vkCreateImageView(m_logical_device, &image_info, nullptr, &m_swap_image_views[i]), "Failed to create swap chain image view")
+		VK_ASSERT_THROW(vkCreateImageView(m_logical_device, &image_info, nullptr, &m_swap_image_views[i]), "Failed to create swap chain image view")
 	}
 
 	{
 		VkShaderModule frag_module = create_module("Assets/Shaders/triangle.frag.spv");
 		VkShaderModule vert_module = create_module("Assets/Shaders/triangle.vert.spv");
 	
-		VkPipelineShaderStageCreateInfo shader_stage_info[2]{};
+		VkPipelineShaderStageCreateInfo shader_stage_info[2] {};
 
 		shader_stage_info[0].sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		shader_stage_info[0].stage  = VK_SHADER_STAGE_VERTEX_BIT;
@@ -480,40 +479,31 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 		// TEMP MESH
 
-		VkVertexInputBindingDescription bind_descriptor
-		{
-			.binding = 0,
-			.stride = sizeof(Cr::Vertex),
-			.inputRate =VK_VERTEX_INPUT_RATE_VERTEX,
-		};
+		VkVertexInputBindingDescription bind_descriptor {};
+		bind_descriptor.binding = 0;
+		bind_descriptor.stride = sizeof(Cr::Vertex);
+		bind_descriptor.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
 
-		VkVertexInputAttributeDescription attribute_descriptor[]
-		{
-			{
-				.location = 0,
-				.binding = 0,
-				.format = VK_FORMAT_R32G32B32_SFLOAT,
-				.offset = offsetof(Cr::Vertex, position)
-			},
-			{
-				.location = 1,
-				.binding = 0,
-				.format = VK_FORMAT_R32G32_SFLOAT,
-				.offset = offsetof(Cr::Vertex, uv)
-			},
-		};
+		VkVertexInputAttributeDescription attribute_descriptor[2] {};
+		attribute_descriptor[0].location = 0;
+		attribute_descriptor[0].binding = 0;
+		attribute_descriptor[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attribute_descriptor[0].offset = offsetof(Cr::Vertex, position);
 
-		VkPipelineVertexInputStateCreateInfo vertex_input_info
-		{
-			.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-			.pNext = VK_NULL_HANDLE,
-			.flags = 0,
-			.vertexBindingDescriptionCount   = 1,
-			.pVertexBindingDescriptions      = &bind_descriptor,
-			.vertexAttributeDescriptionCount = 2,
-			.pVertexAttributeDescriptions    = attribute_descriptor,
-		};
+		attribute_descriptor[1].location = 1;
+		attribute_descriptor[1].binding = 0;
+		attribute_descriptor[1].format = VK_FORMAT_R32G32_SFLOAT;
+		attribute_descriptor[1].offset = offsetof(Cr::Vertex, uv);
+
+		VkPipelineVertexInputStateCreateInfo vertex_input_info {};
+		vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+		vertex_input_info.pNext = VK_NULL_HANDLE;
+		vertex_input_info.flags = 0;
+		vertex_input_info.vertexBindingDescriptionCount   = 1;
+		vertex_input_info.pVertexBindingDescriptions      = &bind_descriptor;
+		vertex_input_info.vertexAttributeDescriptionCount = 2;
+		vertex_input_info.pVertexAttributeDescriptions    = attribute_descriptor;
 
 		VkPipelineInputAssemblyStateCreateInfo input_assembly_info{};
 		input_assembly_info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -592,7 +582,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		//pipeline_layout_info.pushConstantRangeCount = 0;
 		//pipeline_layout_info.pPushConstantRanges = nullptr;
 
-		VK_ASSERT_RESULT(vkCreatePipelineLayout(m_logical_device, &pipeline_layout_info, nullptr, &m_pipeline_layout), "Failed to create pipeline layout")
+		VK_ASSERT_THROW(vkCreatePipelineLayout(m_logical_device, &pipeline_layout_info, nullptr, &m_pipeline_layout), "Failed to create pipeline layout")
 
 		VkPipelineRenderingCreateInfoKHR pipeline_rendering_info{};
 		pipeline_rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
@@ -619,79 +609,73 @@ API::API(GLFWwindow* surface_context, bool debug)
 		pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
 		pipeline_info.basePipelineIndex   = -1;
 
-		VK_ASSERT_RESULT(vkCreateGraphicsPipelines(m_logical_device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &m_graphics_pipeline), "Failed to create graphics pipeline")
+		VK_ASSERT_THROW(vkCreateGraphicsPipelines(m_logical_device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &m_graphics_pipeline), "Failed to create graphics pipeline")
 
 		vkDestroyShaderModule(m_logical_device, vert_module, nullptr);
 		vkDestroyShaderModule(m_logical_device, frag_module, nullptr);
 	}
 
-	VkCommandPoolCreateInfo command_pool_info
-	{
-		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
-		.pNext = VK_NULL_HANDLE,
-		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		.queueFamilyIndex = indices.graphics,
-	};
+	VkCommandPoolCreateInfo command_pool_info {};
+	command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+	command_pool_info.pNext = VK_NULL_HANDLE;
+	command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+	command_pool_info.queueFamilyIndex = indices.graphics;
 
-	VK_ASSERT_RESULT(vkCreateCommandPool(m_logical_device, &command_pool_info, nullptr, &m_command_pool), "Failed to create command pool")
+	VK_ASSERT_THROW(vkCreateCommandPool(m_logical_device, &command_pool_info, nullptr, &m_command_pool), "Failed to create command pool")
 
 	// Create cube mesh
 
 	{
-		std::vector<Cr::Vertex> cube_vertices = Cr::get_cube_vertices(1.0f);
-		std::vector<u32> cube_indices = Cr::get_cube_indices();
-
-		VkBufferCreateInfo vertex_buffer_info
-		{
-			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			.pNext = VK_NULL_HANDLE,
-			.flags = 0,
-			.size  = sizeof(cube_vertices[0]) * cube_vertices.size(),
-			.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-			.queueFamilyIndexCount = 0,
-			.pQueueFamilyIndices = VK_NULL_HANDLE,
+		std::vector<Cr::Vertex> cube_vertices { 
+			{{-0.5f, -0.5f, 0.5}, {0.0f, 0.0f}},
+			{{-0.5f,  0.5f, 0.5}, {0.0f, 1.0f}},
+			{{ 0.5f,  0.5f, 0.5}, {1.0f, 1.0f}},
+			{{ 0.5f, -0.5f, 0.5}, {1.0f, 0.0f}},
 		};
 
-		VkBufferCreateInfo index_buffer_info
-		{
-			.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			.pNext = VK_NULL_HANDLE,
-			.flags = 0,
-			.size  = sizeof(cube_indices[0]) * cube_indices.size(),
-			.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-			.sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-			.queueFamilyIndexCount = 0,
-			.pQueueFamilyIndices = VK_NULL_HANDLE,
-		};
+		std::vector<u32> cube_indices { 0, 1, 2, 0, 2, 3}; 
 
-		VmaAllocationCreateInfo alloc_info
-		{
-			.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-			.usage = VMA_MEMORY_USAGE_AUTO,
-			.requiredFlags = 0,
-			.preferredFlags = 0,
-			.memoryTypeBits = 0,
-			.pool = nullptr,
-			.pUserData = nullptr,
-			.priority = 0
-		};
+		VkBufferCreateInfo vertex_buffer_info {};
+		vertex_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		vertex_buffer_info.pNext = VK_NULL_HANDLE;
+		vertex_buffer_info.flags = 0;
+		vertex_buffer_info.size  = sizeof(cube_vertices[0]) * cube_vertices.size();
+		vertex_buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		vertex_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		vertex_buffer_info.queueFamilyIndexCount = 0;
+		vertex_buffer_info.pQueueFamilyIndices = VK_NULL_HANDLE;
 
-		VK_ASSERT_RESULT(vmaCreateBuffer(m_allocator, &vertex_buffer_info, &alloc_info, &m_vertex_buffer, &m_vertex_allocation, nullptr), "Failed to create vertex buffer")
-		VK_ASSERT_RESULT(vmaCreateBuffer(m_allocator, &index_buffer_info, &alloc_info, &m_index_buffer, &m_index_allocation, nullptr), "Failed to create index buffer")
+		VkBufferCreateInfo index_buffer_info {};
+		index_buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		index_buffer_info.pNext = VK_NULL_HANDLE;
+		index_buffer_info.flags = 0;
+		index_buffer_info.size  = sizeof(cube_indices[0]) * cube_indices.size();
+		index_buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		index_buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		index_buffer_info.queueFamilyIndexCount = 0;
+		index_buffer_info.pQueueFamilyIndices = VK_NULL_HANDLE;
 
-		void *data;
+		VmaAllocationCreateInfo allocation_info {};
+		allocation_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+		allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
+		allocation_info.requiredFlags = 0;
+		allocation_info.preferredFlags = 0;
+		allocation_info.memoryTypeBits = 0;
+		allocation_info.pool = nullptr;
+		allocation_info.pUserData = nullptr;
+		allocation_info.priority = 0;
 
-		VK_ASSERT_RESULT(vmaMapMemory(m_allocator, m_vertex_allocation, &data), "Failed to map vertex_buffer");
-		std::copy(cube_vertices.cbegin(), cube_vertices.cend(), static_cast<Cr::Vertex*>(data));
-		vmaUnmapMemory(m_allocator, m_vertex_allocation);
+		m_vertex_buffers.emplace_back(m_allocator, allocation_info, vertex_buffer_info);
+		m_index_buffers.emplace_back(m_allocator, allocation_info, index_buffer_info);
 
-		VK_ASSERT_RESULT(vmaMapMemory(m_allocator, m_index_allocation, &data), "Failed to map index_buffer");
-		std::copy(cube_indices.cbegin(), cube_indices.cend(), static_cast<u32*>(data));
-		vmaUnmapMemory(m_allocator, m_index_allocation);
+		m_vertex_buffers.back().map(cube_vertices.begin(), cube_vertices.end(), 0);
+		m_index_buffers.back().map(cube_indices.begin(), cube_indices.end(), 0);
 
-		VK_ASSERT_RESULT(vmaFlushAllocation(m_allocator, m_vertex_allocation, 0, VK_WHOLE_SIZE), "Failed to flush vertex allocation")
-		VK_ASSERT_RESULT(vmaFlushAllocation(m_allocator, m_index_allocation, 0, VK_WHOLE_SIZE), "Failed to flush index allocation")
+		m_vertex_buffers.back().flush();
+		m_index_buffers.back().flush();
+
+//		VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, m_vertex_allocation, 0, VK_WHOLE_SIZE), "Failed to flush vertex allocation")
+//		VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, m_index_allocation, 0, VK_WHOLE_SIZE), "Failed to flush index allocation")
 	}
 
 	// Create command buffers and sync objects
@@ -710,7 +694,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		.commandBufferCount = static_cast<u32>(m_command_buffer.size()),
 	};
 
-	VK_ASSERT_RESULT(vkAllocateCommandBuffers(m_logical_device, &command_buffer_info, m_command_buffer.data()), "Failed to allocate command buffer") 
+	VK_ASSERT_THROW(vkAllocateCommandBuffers(m_logical_device, &command_buffer_info, m_command_buffer.data()), "Failed to allocate command buffer") 
 
 	VkSemaphoreCreateInfo semaphore_info
 	{
@@ -728,7 +712,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	for (std::size_t frame = 0; frame < m_frames_in_flight; ++frame)
 	{
-		VK_ASSERT_RESULT((vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_image_available_semaphore[frame]) |
+		VK_ASSERT_THROW((vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_image_available_semaphore[frame]) |
 						  vkCreateSemaphore(m_logical_device, &semaphore_info, nullptr, &m_render_finished_semaphore[frame]) |
 						  vkCreateFence(m_logical_device, &fence_info, nullptr, &m_in_flight_fence[frame])), "Failed to create semaphores")
 	}
@@ -739,9 +723,6 @@ API::API(GLFWwindow* surface_context, bool debug)
 API::~API()
 {
 	vkDeviceWaitIdle(m_logical_device);
-
-	vmaDestroyBuffer(m_allocator, m_index_buffer, m_index_allocation); 
-	vmaDestroyBuffer(m_allocator, m_vertex_buffer, m_vertex_allocation); 
 
 	for (auto fence : m_in_flight_fence)
 	{
@@ -768,9 +749,9 @@ API::~API()
 		vkDestroyImageView(m_logical_device, image_view, nullptr);
 	}
 
-	vkDestroySwapchainKHR(m_logical_device, m_swap_chain, nullptr);
-
 	vmaDestroyAllocator(m_allocator);
+
+	vkDestroySwapchainKHR(m_logical_device, m_swap_chain, nullptr);
 
 	vkDestroyDevice(m_logical_device, nullptr);
 
@@ -783,11 +764,11 @@ API::~API()
 
 void API::proto_render_loop()
 {
-	VK_ASSERT_RESULT(vkWaitForFences(m_logical_device, 1, &m_in_flight_fence[m_current_frame], VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
-	VK_ASSERT_RESULT(vkResetFences(m_logical_device, 1, &m_in_flight_fence[m_current_frame]), "Failed to reset renderloop fence")
+	VK_ASSERT_THROW(vkWaitForFences(m_logical_device, 1, &m_in_flight_fence[m_current_frame], VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
+	VK_ASSERT_THROW(vkResetFences(m_logical_device, 1, &m_in_flight_fence[m_current_frame]), "Failed to reset renderloop fence")
 
 	u32 image_index;
-	VK_ASSERT_RESULT(vkAcquireNextImageKHR(m_logical_device, m_swap_chain, std::numeric_limits<u64>::max(), m_image_available_semaphore[m_current_frame], VK_NULL_HANDLE, &image_index), "Failed to acquire next image")
+	VK_ASSERT_THROW(vkAcquireNextImageKHR(m_logical_device, m_swap_chain, std::numeric_limits<u64>::max(), m_image_available_semaphore[m_current_frame], VK_NULL_HANDLE, &image_index), "Failed to acquire next image")
 
 	VkCommandBufferBeginInfo begin_info
 	{
@@ -798,7 +779,7 @@ void API::proto_render_loop()
 	};
 
 //	VK_ASSERT_RESULT(vkResetCommandBuffer(m_command_buffer, 0), "Failed to reset command buffer")
-	VK_ASSERT_RESULT(vkBeginCommandBuffer(m_command_buffer[m_current_frame], &begin_info), "Failed to begin recording command buffer")
+	VK_ASSERT_THROW(vkBeginCommandBuffer(m_command_buffer[m_current_frame], &begin_info), "Failed to begin recording command buffer")
 
 	VkRenderingAttachmentInfoKHR render_attachment_info{};
 	render_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -865,11 +846,13 @@ void API::proto_render_loop()
 	vkCmdBindPipeline(m_command_buffer[m_current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_graphics_pipeline);
 
 	VkDeviceSize offsets[] {0};
-	vkCmdBindVertexBuffers(m_command_buffer[m_current_frame], 0, 1, &m_vertex_buffer, offsets); 
+	vkCmdBindVertexBuffers(m_command_buffer[m_current_frame], 0, 1, &m_vertex_buffers.back().handle, offsets); 
+
+	vkCmdBindIndexBuffer(m_command_buffer[m_current_frame], m_index_buffers[0].handle, 0, VK_INDEX_TYPE_UINT32);
 
 	Vk::CmdBeginRenderingKHR(m_command_buffer[m_current_frame], &render_info);
 
-	vkCmdDraw(m_command_buffer[m_current_frame], 16, 1, 0, 0);
+	vkCmdDrawIndexed(m_command_buffer[m_current_frame], 6, 1, 0, 0, 0);
 
 	Vk::CmdEndRenderingKHR(m_command_buffer[m_current_frame]);
 
@@ -902,7 +885,7 @@ void API::proto_render_loop()
 			0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 	}
 
-	VK_ASSERT_RESULT(vkEndCommandBuffer(m_command_buffer[m_current_frame]), "Failed to end recording command buffer")
+	VK_ASSERT_THROW(vkEndCommandBuffer(m_command_buffer[m_current_frame]), "Failed to end recording command buffer")
 
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
@@ -916,7 +899,7 @@ void API::proto_render_loop()
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores = &m_render_finished_semaphore[m_current_frame];
 
-	VK_ASSERT_RESULT(vkQueueSubmit(m_graphics_queue, 1, &submit_info, m_in_flight_fence[m_current_frame]), "Failed to submit draw command buffer")
+	VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, m_in_flight_fence[m_current_frame]), "Failed to submit draw command buffer")
 
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -927,7 +910,7 @@ void API::proto_render_loop()
 	present_info.pImageIndices = &image_index;
 	present_info.pResults = nullptr;
 
-	VK_ASSERT_RESULT(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present")
+	VK_ASSERT_THROW(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present")
 
 	if (++m_current_frame == m_frames_in_flight)
 		m_current_frame = 0;
@@ -945,7 +928,7 @@ VkShaderModule API::create_module(const std::string& path)
 	shader_module_info.pCode    = reinterpret_cast<const uint32_t*>(source.data());
 
 	VkShaderModule shader_module;
-	VK_ASSERT_RESULT(vkCreateShaderModule(m_logical_device, &shader_module_info, nullptr, &shader_module), "Failed to create shader module")
+	VK_ASSERT_THROW(vkCreateShaderModule(m_logical_device, &shader_module_info, nullptr, &shader_module), "Failed to create shader module")
 
 	return shader_module;
 };

@@ -1,6 +1,6 @@
 #include "Graphics/Vulkan/Extension.hpp"
 
-namespace Vk
+namespace Cr::Vk
 {
 	// TODO Error handling
 

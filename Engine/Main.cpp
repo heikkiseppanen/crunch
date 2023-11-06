@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 	{
 		Cr::Window window{1280, 720, "Crunch"};
 		
-		Vk::API vk{window.get_handle()};
+		Cr::Vk::API vk{window.get_handle()};
 
 		while (!window.should_close())
 		{

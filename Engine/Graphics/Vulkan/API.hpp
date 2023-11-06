@@ -3,6 +3,7 @@
 #include "Crunch.hpp"
 
 #include "Graphics/Vulkan/Allocator.hpp"
+#include "Graphics/Vulkan/Buffer.hpp"
 #include "Graphics/Mesh.hpp"
 
 // Shouldn't need GLFW in this header preferably...
@@ -11,7 +12,7 @@
 
 #include <vector>
 
-namespace Vk
+namespace Cr::Vk
 {
 
 struct SwapChainSupportDetails
@@ -48,16 +49,15 @@ class API
 
 		VkInstance m_instance;
 
+		VkPhysicalDevice m_physical_device;
+		VkPhysicalDeviceProperties m_physical_device_properties;
+		VkPhysicalDeviceFeatures   m_physical_device_features;
+
 		VmaAllocator m_allocator;
 
 		VkSurfaceKHR m_surface;
 
 		VkDebugUtilsMessengerEXT m_debug_messenger;
-
-		VkPhysicalDevice m_physical_device;
-
-		VkPhysicalDeviceProperties m_physical_device_properties;
-		VkPhysicalDeviceFeatures   m_physical_device_features;
 
 		VkDevice m_logical_device;
 
@@ -87,10 +87,8 @@ class API
 
 		std::vector<VkFence> m_in_flight_fence;
 
-		VkBuffer m_vertex_buffer;
-		VkBuffer m_index_buffer;
-		VmaAllocation m_vertex_allocation;
-		VmaAllocation m_index_allocation;
+		std::vector<Buffer> m_vertex_buffers;
+		std::vector<Buffer> m_index_buffers;
 
 }; // class API
 
