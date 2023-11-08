@@ -69,13 +69,13 @@ namespace Cr
 		constexpr u32 FACE_INDICES[] { 0, 1, 3, 0, 2, 3 };
 		constexpr u32 FACE_COUNT = 6;
 
-		std::vector<u32> indices(FACE_COUNT * CR_ARR_SIZE(FACE_INDICES));
+		std::vector<u32> indices(36);
 
 		for (u32 face = 0; face < FACE_COUNT; ++face)
 		{
-			for (u32 vertex = 0; vertex < CR_ARR_SIZE(FACE_INDICES); ++vertex)
+			for (u32 i = 0; i < CR_ARRAY_SIZE(FACE_INDICES); ++i)
 			{
-				indices[face * 4 + vertex] = FACE_INDICES[vertex] + (face * 4);
+				indices[i + (face * 6)] = FACE_INDICES[i] + (face * 4);
 			}
 		}
 

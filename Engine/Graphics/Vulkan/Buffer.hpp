@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Crunch.hpp"
+#include "Shared/ClassUtility.hpp"
 
 #include <vulkan/vulkan_core.h>
 #include <vk_mem_alloc.h>
@@ -11,16 +12,13 @@
 namespace Cr::Vk
 {
 
-class Buffer
+struct Buffer 
 {
 	public:
 		VkBuffer handle;
 
 		Buffer() = default;
 		Buffer(VmaAllocator allocator, const VmaAllocationCreateInfo& allocation_info, const VkBufferCreateInfo& buffer_info);
-
-		Buffer(const Buffer& other) = delete;
-		Buffer& operator = (const Buffer& other) = delete;
 
 		Buffer(Buffer&& other);
 		Buffer& operator = (Buffer&& other);

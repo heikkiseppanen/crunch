@@ -14,7 +14,8 @@ layout(location = 0) out vec2 uv_out;
 
 void main()
 {
-//	gl_Position = u.projection * u.view * vec4(position_in, 1.0f);
 	gl_Position = vec4(position_in, 1.0f);
+//	gl_Position = u.projection * u.view * vec4(position_in, 1.0f);
 	uv_out = uv_in;
 }
+
