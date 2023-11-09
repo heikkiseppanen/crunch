@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.25)
 
 project( 
 	Crunch
@@ -26,8 +26,6 @@ add_executable(${PROJECT_NAME} ${SOURCE})
 
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"${ENGINE_DIR}"
-	"${LIB_DIR}/GLFW/include"
-	"${LIB_DIR}/VulkanMemoryAllocator"
 )
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Lib")
