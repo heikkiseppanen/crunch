@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.27)
 
 #===========================================================#
 # Third party dependencies                                  #
@@ -13,10 +13,14 @@ set( GLFW_INSTALL OFF CACHE BOOL "Lib only" FORCE)
 
 add_subdirectory( GLFW )
 
+add_subdirectory( GLM )
+
 target_link_libraries(${PROJECT_NAME}
 		PUBLIC
 			vulkan
 			glfw
+		INTERFACE
+			glm
 )
 
 
