@@ -4,7 +4,18 @@ cmake_minimum_required(VERSION 3.27)
 # Third party dependencies                                  #
 #===========================================================#
 
-find_package( Vulkan REQUIRED )
+find_package( Vulkan )
+
+IF (NOT Vulkan_FOUND)
+	find_library(Vulkan_LIBRARY NAMES vulkan-1 vulkan PATHS ${CMAKE_SOURCE_DIR}/Lib/Vulkan)
+	IF (Vulkan_LIBRARY)
+		set(Vulkan_FOUND ON)
+	ENDIF()
+ENDIF()
+
+IF (NOT Vulkan_FOUND)
+	message(FATAL_ERROR "No Vulkan library!")
+ENDIF()
 
 set( GLFW_BUILD_TESTS OFF CACHE BOOL "Lib only" FORCE)
 set( GLFW_BUILD_EXAMPLES OFF CACHE BOOL "Lib only" FORCE)
@@ -21,6 +32,11 @@ target_link_libraries(${PROJECT_NAME}
 			glfw
 		INTERFACE
 			glm
+)
+target_include_directories(${PROJECT_NAME} PRIVATE
+	"${LIB_DIR}/GLFW/include"
+	"${LIB_DIR}/VulkanMemoryAllocator"
+	"${LIB_DIR}/Vulkan/include"
 )
 
 

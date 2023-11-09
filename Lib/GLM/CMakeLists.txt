@@ -1,5 +1,4 @@
-cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
-cmake_policy(VERSION 3.27)
+cmake_minimum_required(VERSION 3.20)
 
 set(GLM_VERSION "0.9.9")
 project(glm VERSION ${GLM_VERSION} LANGUAGES CXX)
