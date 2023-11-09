@@ -1,8 +1,20 @@
-# Crunch Engine
+# Crunch
+A rendering-/game-engine built with C/C++17 for educational purposes. The project is in initial stages and current main goal is prototyping a framework for Vulkan components and pipelines.
 
-Modern C++ game engine built for educational purposes.
+# Dependencies
+- CMake
 
-# Dependencies (Included)
-
+## Included Libraries
+- GLM
+- Vulkan Memory Allocator
 - GLFW
-- GLAD
+
+# Building
+The project is maintained and has confirmed functionality only on Linux(x86-64) with GTX 1080 at the moment.
+
+## Linux (Make)
+```
+cmake -S ./ -B ./Build
+make -C ./Build
+cp -r ./Assets ./Build
+```
