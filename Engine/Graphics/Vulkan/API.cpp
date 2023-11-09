@@ -157,7 +157,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 	std::vector<VkPhysicalDevice> device_list{device_count};
 	VK_ASSERT_THROW(vkEnumeratePhysicalDevices(m_instance, &device_count, device_list.data()), "Failed to get fetch devices");
 
-	m_physical_device = VK_NULL_HANDLE;
+	m_physical_device = nullptr;
 	for (auto& device : device_list)
 	{
 		// Confirm properties and features
@@ -263,7 +263,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 		m_physical_device = device;
 	}
 	
-	CR_ASSERT_THROW(m_physical_device == VK_NULL_HANDLE, "No suitable Vulkan device found.")
+	CR_ASSERT_THROW(m_physical_device == nullptr, "No suitable Vulkan device found.")
 	bind_device_extension_functions(m_instance);
 
 	vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
@@ -293,7 +293,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_feature {};
 	dynamic_rendering_feature.sType            = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
-	dynamic_rendering_feature.pNext            = VK_NULL_HANDLE;
+	dynamic_rendering_feature.pNext            = nullptr;
 	dynamic_rendering_feature.dynamicRendering = VK_TRUE;
 
 	VkDeviceCreateInfo logical_device_info{};
@@ -406,7 +406,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 	swap_chain_info.preTransform     = swap_chain_details.capabilities.currentTransform;
 	swap_chain_info.compositeAlpha   = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 	swap_chain_info.clipped          = VK_TRUE;
-	swap_chain_info.oldSwapchain     = VK_NULL_HANDLE; // Swapchain MUST be recreated and old referenced if resize etc happens!
+	swap_chain_info.oldSwapchain     = nullptr; // Swapchain MUST be recreated and old referenced if resize etc happens!
 
 	u32 temp_indices[] = {indices.graphics, indices.presentation};
 	if (indices.graphics == indices.presentation)
@@ -428,11 +428,13 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	u32 swap_image_count;
 	VK_ASSERT_THROW(vkGetSwapchainImagesKHR(m_device, m_swap_chain, &swap_image_count, nullptr), "Failed to fetch swap chain image count");
+
 	m_swap_images.resize(swap_image_count);
 	VK_ASSERT_THROW(vkGetSwapchainImagesKHR(m_device, m_swap_chain, &swap_image_count, m_swap_images.data()), "Failed to fetch swap chain images");
 
 	m_swap_image_views.resize(m_swap_images.size());
 
+	// Create views for the images
 	for (std::size_t i = 0; i < m_swap_images.size(); ++i)
 	{
 		VkImageViewCreateInfo image_info{};
@@ -453,9 +455,27 @@ API::API(GLFWwindow* surface_context, bool debug)
 		VK_ASSERT_THROW(vkCreateImageView(m_device, &image_info, nullptr, &m_swap_image_views[i]), "Failed to create swap chain image view")
 	}
 
+//	// Create descriptor pool (Shader uniform buffers)
+//
+//	VkDescriptorPoolSize descriptor_pool_size{};
+//	descriptor_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//	descriptor_pool_size.descriptorCount = FRAMES_IN_FLIGHT;
+//
+//	VkDescriptorPoolCreateInfo descriptor_pool_info{};
+//	descriptor_pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+//	descriptor_pool_info.pNext = nullptr;
+//	descriptor_pool_info.flags = 0;
+//	descriptor_pool_info.maxSets = FRAMES_IN_FLIGHT;
+//	descriptor_pool_info.poolSizeCount = 1;
+//	descriptor_pool_info.pPoolSizes = &descriptor_pool_size;
+//
+//	VK_ASSERT_THROW(vkCreateDescriptorPool(m_device, &descriptor_pool_info, nullptr, &m_descriptor_pool), "Failed to create descriptor pool")
+
+	// Create command pool
+
 	VkCommandPoolCreateInfo command_pool_info {};
 	command_pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	command_pool_info.pNext = VK_NULL_HANDLE;
+	command_pool_info.pNext = nullptr;
 	command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 	command_pool_info.queueFamilyIndex = indices.graphics;
 
@@ -465,27 +485,23 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	VkCommandBufferAllocateInfo command_buffer_info {};
 	command_buffer_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	command_buffer_info.pNext              = VK_NULL_HANDLE;
+	command_buffer_info.pNext              = nullptr;
 	command_buffer_info.commandPool        = m_command_pool;
 	command_buffer_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
 	command_buffer_info.commandBufferCount = FRAMES_IN_FLIGHT;
 
-	m_command_buffer.resize(FRAMES_IN_FLIGHT);
 	VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, m_command_buffer.data()), "Failed to allocate command buffer") 
 
 	VkSemaphoreCreateInfo semaphore_info {};
 	semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	semaphore_info.pNext = VK_NULL_HANDLE;
+	semaphore_info.pNext = nullptr;
 	semaphore_info.flags = 0;
 
 	VkFenceCreateInfo fence_info {};
 	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fence_info.pNext = VK_NULL_HANDLE;
+	fence_info.pNext = nullptr;
 	fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	m_in_flight_fence.resize(FRAMES_IN_FLIGHT);
-	m_image_available_semaphore.resize(FRAMES_IN_FLIGHT);
-	m_render_finished_semaphore.resize(FRAMES_IN_FLIGHT);
 	for (std::size_t frame = 0; frame < FRAMES_IN_FLIGHT; ++frame)
 	{
 		VK_ASSERT_THROW((vkCreateSemaphore(m_device, &semaphore_info, nullptr, &m_image_available_semaphore[frame]) |
@@ -500,9 +516,9 @@ API::~API()
 {
 	vkDeviceWaitIdle(m_device);
 
-	for (size_t i = 0; i < m_buffer_pool.size(); ++i)
+	for (auto& buffer : m_buffer_pool)
 	{
-		vmaDestroyBuffer(m_allocator, m_buffer_pool[i].handle, m_buffer_pool[i].allocation);
+		destroy_buffer(buffer);
 	}
 
 	for (auto fence : m_in_flight_fence)
@@ -520,6 +536,8 @@ API::~API()
 		vkDestroySemaphore(m_device, semaphore, nullptr);
 	}
 
+//	vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
+
 	vkDestroyCommandPool(m_device, m_command_pool, nullptr);
 
 	for (auto context : m_shader_pool)
@@ -527,6 +545,10 @@ API::~API()
 		vkDestroyPipeline(m_device, context.pipeline, nullptr);
 		vkDestroyPipelineLayout(m_device, context.pipeline_layout, nullptr);
 //		vkDestroyDescriptorSetLayout(m_device, context.descriptor_set_layout, nullptr);
+//		for (auto& buffer : context.uniform_buffer_list)
+//		{
+//			destroy_buffer(buffer);
+//		}
 	}
 
 	for (auto image_view : m_swap_image_views)
@@ -595,7 +617,7 @@ u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info {};
 	vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vertex_input_info.pNext = VK_NULL_HANDLE;
+	vertex_input_info.pNext = nullptr;
 	vertex_input_info.flags = 0;
 	vertex_input_info.vertexBindingDescriptionCount   = 1;
 	vertex_input_info.pVertexBindingDescriptions      = &bind_descriptor;
@@ -634,8 +656,8 @@ u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u
 	rasterizer_info.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer_info.polygonMode = VK_POLYGON_MODE_FILL;
 	rasterizer_info.lineWidth = 1.0f;
-	rasterizer_info.cullMode = VK_CULL_MODE_NONE;
-	rasterizer_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	rasterizer_info.cullMode = VK_CULL_MODE_FRONT_BIT;
+	rasterizer_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer_info.depthBiasEnable = VK_FALSE;
 	rasterizer_info.depthBiasConstantFactor = 0.0f;
 	rasterizer_info.depthBiasClamp = 0.0f;
@@ -674,19 +696,18 @@ u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u
 	color_blend_info.pAttachments = &color_blend_attachment;
 	// color_blend_info.blendConstants[0] = 0.0f;
 
-	// Uniform binding for shader
-	// TODO Implement SPIRV Reflection library from Khronos to automate this.
-	VkDescriptorSetLayoutBinding ubo_layout_binding{};
-	ubo_layout_binding.binding = 0;
-	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	ubo_layout_binding.descriptorCount = 1;
-	ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	//ubo_layout_binding.pImmutableSamplers;
-	(void)ubo_layout_binding;
-
+//	// Uniform buffer binding for shader
+//	// TODO Implement SPIRV Reflection library from Khronos to automate this for shader creation pipelines.
+//	VkDescriptorSetLayoutBinding ubo_layout_binding{};
+//	ubo_layout_binding.binding = 0;
+//	ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//	ubo_layout_binding.descriptorCount = 1;
+//	ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+//	ubo_layout_binding.pImmutableSamplers = nullptr;
+//
 //	VkDescriptorSetLayoutCreateInfo ubo_layout_info{};
 //	ubo_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-//	ubo_layout_info.pNext = VK_NULL_HANDLE;
+//	ubo_layout_info.pNext = nullptr;
 //	ubo_layout_info.flags = 0;
 //	ubo_layout_info.bindingCount = 1;
 //	ubo_layout_info.pBindings = &ubo_layout_binding;
@@ -694,24 +715,34 @@ u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u
 //	VkDescriptorSetLayout ubo_layout;
 //	VK_ASSERT_THROW(vkCreateDescriptorSetLayout(m_device, &ubo_layout_info, nullptr, &ubo_layout), "Failed to create DescriptorSetLayout");
 
+	// Push constants
+
+	VkPushConstantRange push_constant_range {};
+	push_constant_range.offset = 0;
+	push_constant_range.size = sizeof(PushConstantObject);
+	push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
 	VkPipelineLayoutCreateInfo pipeline_layout_info{};
 	pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
 	pipeline_layout_info.setLayoutCount = 0;
-	pipeline_layout_info.pSetLayouts = VK_NULL_HANDLE;
-	//pipeline_layout_info.setLayoutCount = 1;
-	//pipeline_layout_info.pSetLayouts = &ubo_layout;
-	pipeline_layout_info.pushConstantRangeCount = 0;
-	pipeline_layout_info.pPushConstantRanges = nullptr;
+	pipeline_layout_info.pSetLayouts = nullptr;
+//	pipeline_layout_info.setLayoutCount = 1;
+//	pipeline_layout_info.pSetLayouts = &ubo_layout;
+
+	pipeline_layout_info.pushConstantRangeCount = 1;
+	pipeline_layout_info.pPushConstantRanges = &push_constant_range;
 
 	VkPipelineLayout pipeline_layout;
 	VK_ASSERT_THROW(vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr, &pipeline_layout), "Failed to create pipeline layout")
 
-	// For dynamic rendering
+	// For dynamic rendering extension
 	VkPipelineRenderingCreateInfoKHR pipeline_rendering_info{};
 	pipeline_rendering_info.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
 	pipeline_rendering_info.colorAttachmentCount = 1;
 	pipeline_rendering_info.pColorAttachmentFormats = &m_swap_format;
 
+	// Create pipeline
 	VkGraphicsPipelineCreateInfo pipeline_info{};
 	pipeline_info.sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	pipeline_info.pNext               = &pipeline_rendering_info;
@@ -722,40 +753,100 @@ u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u
 	pipeline_info.pViewportState      = &viewport_info;
 	pipeline_info.pRasterizationState = &rasterizer_info;
 	pipeline_info.pMultisampleState   = &multisampling_info;
-	pipeline_info.pDepthStencilState  = VK_NULL_HANDLE;
+	pipeline_info.pDepthStencilState  = nullptr;
 	pipeline_info.pColorBlendState    = &color_blend_info;
 	pipeline_info.pDynamicState       = &dynamic_state_info;
 	pipeline_info.layout              = pipeline_layout;
-	pipeline_info.renderPass          = VK_NULL_HANDLE;
-	pipeline_info.subpass             = 0;
-	pipeline_info.basePipelineHandle  = VK_NULL_HANDLE;
+	pipeline_info.renderPass          = nullptr; // Not needed with dynamic rendering EXT
+	pipeline_info.subpass             = 0;              // Same
+	pipeline_info.basePipelineHandle  = nullptr;
 	pipeline_info.basePipelineIndex   = -1;
 
 	VkPipeline pipeline;
-	VK_ASSERT_THROW(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr, &pipeline), "Failed to create graphics pipeline")
+	VK_ASSERT_THROW(vkCreateGraphicsPipelines(m_device, nullptr, 1, &pipeline_info, nullptr, &pipeline), "Failed to create graphics pipeline")
 
 	vkDestroyShaderModule(m_device, vert_module, nullptr);
 	vkDestroyShaderModule(m_device, frag_module, nullptr);
 
-	ShaderContext shader;
-	shader.pipeline = pipeline;
-	shader.pipeline_layout = pipeline_layout;
-//	shader.descriptor_set_layout = VK_NULL_HANDLE;
-//	shader.descriptor_set_layout = ubo_layout;
-
-	m_shader_pool.emplace_back(shader);
+	m_shader_pool.push_back({pipeline, pipeline_layout});
 
 	return m_shader_pool.size() - 1;
+
+// UNIFORM BUFFERS
+
+//	m_shader_pool.push_back({pipeline, pipeline_layout, ubo_layout, {}, {}});
+
+//	auto& uniform_buffer_list = m_shader_pool.back().uniform_buffer_list;
+//	auto& descriptor_set_list = m_shader_pool.back().descriptor_set_list;
+//
+//	// Create uniform buffers
+//	VkBufferCreateInfo buffer_info {};
+//	buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//	buffer_info.pNext = nullptr;
+//	buffer_info.flags = 0;
+//	buffer_info.size  = sizeof(PushConstants);
+//	buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+//	buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//	buffer_info.queueFamilyIndexCount = 0;
+//	buffer_info.pQueueFamilyIndices = nullptr;
+//
+//	for (auto& buffer : uniform_buffer_list)
+//	{
+//		buffer = create_buffer(buffer_info);
+//	}
+
+	// Create descriptor sets
+//	std::array<VkDescriptorSetLayout, FRAMES_IN_FLIGHT> descriptor_set_layouts;
+//	descriptor_set_layouts.fill(ubo_layout);
+//
+//	VkDescriptorSetAllocateInfo descriptor_set_info {};
+//	descriptor_set_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+//	descriptor_set_info.pNext = nullptr;
+//	descriptor_set_info.descriptorPool = m_descriptor_pool;
+//	descriptor_set_info.descriptorSetCount = FRAMES_IN_FLIGHT;
+//	descriptor_set_info.pSetLayouts = descriptor_set_layouts.data(); // NEEDS AS MANY LAYOUTS AS SETS!
+//
+//	VK_ASSERT_THROW(vkAllocateDescriptorSets(m_device, &descriptor_set_info, descriptor_set_list.data()), "Failed to allocate descriptor sets")
+
+//	for (std::size_t i = 0; i < FRAMES_IN_FLIGHT; ++i)
+//	{
+//		VkDescriptorBufferInfo descriptor_buffer_info {};
+//		descriptor_buffer_info.buffer = uniform_buffer_list[i].handle;
+//		descriptor_buffer_info.offset = 0;
+//		descriptor_buffer_info.range = sizeof(PushConstants);
+//
+//		VkWriteDescriptorSet descriptor_write {};
+//		descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+//		descriptor_write.pNext = nullptr;
+//		descriptor_write.dstSet = descriptor_set_list[i];
+//		descriptor_write.dstBinding = 0;
+//		descriptor_write.dstArrayElement = 0;
+//		descriptor_write.descriptorCount = 1;
+//		descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+//		//descriptor_write.pImageInfo = nullptr;
+//		descriptor_write.pBufferInfo = &descriptor_buffer_info;
+//		//descriptor_write.pTexelBufferView = nullptr;
+//
+//		vkUpdateDescriptorSets(m_device, 1, &descriptor_write, 0, nullptr);
+//	}
+
+//	return m_shader_pool.size() - 1;
 }
 
 void API::destroy_shader(u32 shader)
 {
+	// Should do these on renderer level
 	vkDeviceWaitIdle(m_device);
 
 	auto& context = m_shader_pool[shader];
 	vkDestroyPipeline(m_device, context.pipeline, nullptr);
 	vkDestroyPipelineLayout(m_device, context.pipeline_layout, nullptr);
 //	vkDestroyDescriptorSetLayout(m_device, context.descriptor_set_layout, nullptr);
+//	for (auto& buffer : context.uniform_buffer_list)
+//	{
+//		destroy_buffer(buffer);
+//	}
+
 	context = {};
 }
 
@@ -765,13 +856,13 @@ u32 API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>
 
 	VkBufferCreateInfo buffer_info {};
 	buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	buffer_info.pNext = VK_NULL_HANDLE;
+	buffer_info.pNext = nullptr;
 	buffer_info.flags = 0;
 	buffer_info.size  = sizeof(vertices[0]) * vertices.size();
 	buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 	buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	buffer_info.queueFamilyIndexCount = 0;
-	buffer_info.pQueueFamilyIndices = VK_NULL_HANDLE;
+	buffer_info.pQueueFamilyIndices = nullptr;
 
 	Buffer buffer = create_buffer(buffer_info);
 	std::copy(vertices.cbegin(), vertices.cend(), static_cast<Cr::Vertex*>(buffer.data));
@@ -802,6 +893,7 @@ u32 API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>
 
 void API::destroy_mesh(u32 mesh)
 {
+	// Should do these on renderer level
 	vkDeviceWaitIdle(m_device);	
 
 	auto& context = m_mesh_contexts[mesh];
@@ -813,28 +905,30 @@ void API::destroy_mesh(u32 mesh)
 	buffer = {};
 }
 
-void API::draw(u32 mesh, u32 shader)
+void API::begin_render()
 {
-	(void)shader;
-	VK_ASSERT_THROW(vkWaitForFences(m_device, 1, &m_in_flight_fence[m_current_frame], VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
-	VK_ASSERT_THROW(vkResetFences(m_device, 1, &m_in_flight_fence[m_current_frame]), "Failed to reset renderloop fence")
+	VkFence fence = m_in_flight_fence[m_current_frame];
 
-	u32 image_index;
-	VK_ASSERT_THROW(vkAcquireNextImageKHR(m_device, m_swap_chain, std::numeric_limits<u64>::max(), m_image_available_semaphore[m_current_frame], VK_NULL_HANDLE, &image_index), "Failed to acquire next image")
+	VkSemaphore image_available = m_image_available_semaphore[m_current_frame];
+
+	VK_ASSERT_THROW(vkWaitForFences(m_device, 1, &fence, VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
+	VK_ASSERT_THROW(vkResetFences(m_device, 1, &fence), "Failed to reset renderloop fence")
+
+	VK_ASSERT_THROW(vkAcquireNextImageKHR(m_device, m_swap_chain, std::numeric_limits<u64>::max(), image_available, nullptr, &m_image_index), "Failed to acquire next image")
+
+	VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
 	VkCommandBufferBeginInfo begin_info {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.pNext = VK_NULL_HANDLE;
+	begin_info.pNext = nullptr;
 	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-	begin_info.pInheritanceInfo = VK_NULL_HANDLE;
+	begin_info.pInheritanceInfo = nullptr;
 
-	// Start to render
-
-	VK_ASSERT_THROW(vkBeginCommandBuffer(m_command_buffer[m_current_frame], &begin_info), "Failed to begin recording command buffer")
+	VK_ASSERT_THROW(vkBeginCommandBuffer(command_buffer, &begin_info), "Failed to begin recording command buffer")
 
 	VkRenderingAttachmentInfoKHR render_attachment_info{};
 	render_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-	render_attachment_info.imageView = m_swap_image_views[image_index];
+	render_attachment_info.imageView = m_swap_image_views[m_image_index];
 	render_attachment_info.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
 	render_attachment_info.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 	render_attachment_info.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -851,14 +945,14 @@ void API::draw(u32 mesh, u32 shader)
 		VkImageMemoryBarrier image_memory_barrier
 		{
 			.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.pNext               = VK_NULL_HANDLE,
+			.pNext               = nullptr,
 			.srcAccessMask       = VK_ACCESS_NONE,
 			.dstAccessMask       = VK_ACCESS_NONE,
 			.oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
 			.newLayout           = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
 			.srcQueueFamilyIndex = 0,
 			.dstQueueFamilyIndex = 0,
-			.image               = m_swap_images[image_index],
+			.image               = m_swap_images[m_image_index],
 			.subresourceRange
 			{
 				.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -870,13 +964,11 @@ void API::draw(u32 mesh, u32 shader)
 		};
 
 		vkCmdPipelineBarrier(
-			m_command_buffer[m_current_frame],
+			command_buffer,
 			VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
 			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
 			0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 	}
-
-	vkCmdBindPipeline(m_command_buffer[m_current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, m_shader_pool[shader].pipeline);
 
 	VkViewport viewport{};
 	viewport.x = 0.0f;
@@ -886,81 +978,116 @@ void API::draw(u32 mesh, u32 shader)
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 
-	vkCmdSetViewport(m_command_buffer[m_current_frame], 0, 1, &viewport);
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 
 	VkRect2D scissor{};
 	scissor.offset = {};
 	scissor.extent = m_swap_extent;
 
-	vkCmdSetScissor(m_command_buffer[m_current_frame], 0, 1, &scissor);
+	vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-	auto mesh_context = m_mesh_contexts[mesh];
-	auto vertex_buffer = m_buffer_pool[mesh_context.vertex_buffer].handle;
-	auto index_buffer = m_buffer_pool[mesh_context.index_buffer].handle;
+	Vk::CmdBeginRenderingKHR(command_buffer, &render_info);
+}
+
+void API::draw(u32 mesh_id, u32 shader_id, PushConstantObject& shader_parameters)
+{
+	VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
+
+	ShaderContext& shader = m_shader_pool[shader_id];
+
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shader.pipeline);
+
+	auto& mesh_context = m_mesh_contexts[mesh_id];
+
+	VkBuffer vertex_buffer = m_buffer_pool[mesh_context.vertex_buffer].handle;
+	VkBuffer index_buffer = m_buffer_pool[mesh_context.index_buffer].handle;
 
 	VkDeviceSize offset[] = {0};
 
-	vkCmdBindVertexBuffers(m_command_buffer[m_current_frame], 0, 1, &vertex_buffer, offset); 
-	vkCmdBindIndexBuffer(m_command_buffer[m_current_frame], index_buffer, 0, VK_INDEX_TYPE_UINT32);
+	vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, offset); 
+	vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
-	Vk::CmdBeginRenderingKHR(m_command_buffer[m_current_frame], &render_info);
+	vkCmdPushConstants(command_buffer, shader.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantObject), &shader_parameters);
 
-	vkCmdDrawIndexed(m_command_buffer[m_current_frame], 6, 1, 0, 0, 0);
+//	VkDescriptorSet descriptor_set = shader.descriptor_set_list[m_current_frame];
+//
+//	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shader.pipeline_layout, 0, 1, &descriptor_set, 0, nullptr);
 
-	Vk::CmdEndRenderingKHR(m_command_buffer[m_current_frame]);
+	vkCmdDrawIndexed(command_buffer, 36, 1, 0, 0, 0);
 
+}
+
+void API::end_render()
+{
+	VkFence fence = m_in_flight_fence[m_current_frame];
+
+	VkSemaphore image_available = m_image_available_semaphore[m_current_frame];
+	VkSemaphore render_finished = m_render_finished_semaphore[m_current_frame];
+
+	VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
+
+	Vk::CmdEndRenderingKHR(command_buffer);
+
+	VkImageMemoryBarrier image_memory_barrier
 	{
-		VkImageMemoryBarrier image_memory_barrier
+		.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.pNext               = nullptr,
+		.srcAccessMask       = VK_ACCESS_NONE,
+		.dstAccessMask       = VK_ACCESS_NONE,
+		.oldLayout           = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+		.newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.srcQueueFamilyIndex = 0,
+		.dstQueueFamilyIndex = 0,
+		.image               = m_swap_images[m_image_index],
+		.subresourceRange
 		{
-			.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			.pNext               = VK_NULL_HANDLE,
-			.srcAccessMask       = VK_ACCESS_NONE,
-			.dstAccessMask       = VK_ACCESS_NONE,
-			.oldLayout           = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-			.newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			.srcQueueFamilyIndex = 0,
-			.dstQueueFamilyIndex = 0,
-			.image               = m_swap_images[image_index],
-			.subresourceRange
-			{
-				.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
-				.baseMipLevel    = 0,
-				.levelCount      = 1,
-				.baseArrayLayer  = 0,
-				.layerCount      = 1,
-			},
-		};
+			.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel    = 0,
+			.levelCount      = 1,
+			.baseArrayLayer  = 0,
+			.layerCount      = 1,
+		},
+	};
 
-		vkCmdPipelineBarrier(
-			m_command_buffer[m_current_frame],
-			VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-			VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-			0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
-	}
+	vkCmdPipelineBarrier(
+		command_buffer,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 
-	VK_ASSERT_THROW(vkEndCommandBuffer(m_command_buffer[m_current_frame]), "Failed to end recording command buffer")
+	VK_ASSERT_THROW(vkEndCommandBuffer(command_buffer), "Failed to end recording command buffer")
+
+	// Update shader uniforms
+//	UniformBufferObject* uniform_buffer = static_cast<UniformBufferObject*>(shader.uniform_buffer_list[m_current_frame].data);
+//	*uniform_buffer = uniforms;
+//
+//	vmaFlushAllocation(m_allocator, shader.uniform_buffer_list[m_current_frame].all
+
+	// Submit commands
 
 	VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
 	VkSubmitInfo submit_info{};
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submit_info.waitSemaphoreCount = 1;
-	submit_info.pWaitSemaphores = &m_image_available_semaphore[m_current_frame];
+	submit_info.pWaitSemaphores = &image_available;
 	submit_info.pWaitDstStageMask = &wait_stage;
 	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers = &m_command_buffer[m_current_frame];
+	submit_info.pCommandBuffers = &command_buffer;
 	submit_info.signalSemaphoreCount = 1;
-	submit_info.pSignalSemaphores = &m_render_finished_semaphore[m_current_frame];
+	submit_info.pSignalSemaphores = &render_finished;
 
-	VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, m_in_flight_fence[m_current_frame]), "Failed to submit draw command buffer")
+	VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, fence), "Failed to submit draw command buffer")
+
+	//  Present image 
 
 	VkPresentInfoKHR present_info{};
 	present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 	present_info.waitSemaphoreCount = 1;
-	present_info.pWaitSemaphores = &m_render_finished_semaphore[m_current_frame];
+	present_info.pWaitSemaphores = &render_finished;
 	present_info.swapchainCount = 1;
 	present_info.pSwapchains = &m_swap_chain;
-	present_info.pImageIndices = &image_index;
+	present_info.pImageIndices = &m_image_index;
 	present_info.pResults = nullptr;
 
 	VK_ASSERT_THROW(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present")
@@ -1002,6 +1129,12 @@ Buffer API::create_buffer(VkBufferCreateInfo& buffer_info)
 	buffer.data = allocation_details.pMappedData;
 
 	return buffer;
+}
+
+void   API::destroy_buffer(Buffer& buffer)
+{
+	vmaDestroyBuffer(m_allocator, buffer.handle, buffer.allocation);
+	buffer = {};
 }
 
 } // namespace Vk

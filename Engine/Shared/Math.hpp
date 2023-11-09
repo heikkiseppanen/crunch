@@ -4,6 +4,12 @@
 
 #include <cmath>
 
+#define GLM_FORCE_LEFT_HANDED
+#define GLM_FORCE_DEPTH_ONE_TO_ZERO
+#define GLM_FORCE_RADIANS
+#include "glm/common.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+
 #include <glm/mat3x3.hpp>
 #include <glm/mat4x4.hpp>
 

@@ -10,9 +10,12 @@
 #include <GLFW/glfw3.h>
 
 #include <vector>
+#include <array>
 
 namespace Cr::Vk
 {
+
+static constexpr u32 FRAMES_IN_FLIGHT = 3;
 
 struct SwapChainSupportDetails
 {
@@ -27,11 +30,11 @@ struct QueueFamilyIndices
 	u32 presentation;
 };
 
-struct UniformBufferObject
+struct PushConstantObject
 {
-	Mat4f model;
-	Mat4f view;
-	Mat4f project;
+	alignas(16) Mat4f model;
+	alignas(16) Mat4f view;
+	alignas(16) Mat4f project;
 };
 
 struct MeshContext
@@ -40,18 +43,21 @@ struct MeshContext
 	u32 index_buffer;
 };
 
-struct ShaderContext
-{
-	VkPipeline pipeline;
-	VkPipelineLayout pipeline_layout;
-//	VkDescriptorSetLayout descriptor_set_layout;
-};
-
 struct Buffer
 {
 	VkBuffer handle;
 	VmaAllocation allocation;
 	void* data; 
+};
+
+struct ShaderContext
+{
+	VkPipeline pipeline;
+	VkPipelineLayout pipeline_layout;
+
+	//VkDescriptorSetLayout descriptor_set_layout;
+	//std::array<VkDescriptorSet, FRAMES_IN_FLIGHT> descriptor_set_list;
+	//std::array<Buffer, FRAMES_IN_FLIGHT> uniform_buffer_list;
 };
 
 class API
@@ -71,26 +77,35 @@ class API
 		u32  create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv);
 		void destroy_shader(u32 shader);
 
-		void draw(u32 mesh, u32 shader);
 
 		// DRIVER API
 
 		Buffer create_buffer(VkBufferCreateInfo& buffer_info);
+		void   destroy_buffer(Buffer& buffer);
+
+		// Command buffer recording?
+		void begin_render();
+
+		void draw(u32 mesh_id, u32 shader_id, PushConstantObject& uniforms);
+
+		void end_render();
 
 	private:
 
 		VkShaderModule create_shader_module(const std::vector<u8>& spirv);
 
+		// RENDERING COMPONENTS
+		std::vector<MeshContext>   m_mesh_contexts;
+
+		// API COMPONENTS
 		VkInstance m_instance;
 
-		// Debug context
 		VkDebugUtilsMessengerEXT m_debug_messenger;
 		static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT severity,
 			VkDebugUtilsMessageTypeFlagsEXT type,
 			const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
 			void* p_user_data);
-
 		VkSurfaceKHR m_surface;
 
 		VkPhysicalDevice m_physical_device;
@@ -102,33 +117,31 @@ class API
 		VmaAllocator m_allocator;
 
 		VkCommandPool m_command_pool;
+//		VkDescriptorPool m_descriptor_pool;
 
 		VkQueue m_graphics_queue;
 		VkQueue m_presentation_queue;
 
 		// Swap chain context
 
-		static constexpr u32 FRAMES_IN_FLIGHT = 4;
-
 		VkSwapchainKHR m_swap_chain;
 		VkFormat       m_swap_format;
 		VkExtent2D     m_swap_extent;
 
 		u32 m_current_frame = 0;
+		u32 m_image_index = 0;
 		std::vector<VkImage>     m_swap_images;
 		std::vector<VkImageView> m_swap_image_views;
 
-		std::vector<VkFence>     m_in_flight_fence;
-		std::vector<VkSemaphore> m_image_available_semaphore;
-		std::vector<VkSemaphore> m_render_finished_semaphore;
+		std::array<VkFence,     FRAMES_IN_FLIGHT> m_in_flight_fence;
+		std::array<VkSemaphore, FRAMES_IN_FLIGHT> m_image_available_semaphore;
+		std::array<VkSemaphore, FRAMES_IN_FLIGHT> m_render_finished_semaphore;
 
-		std::vector<VkCommandBuffer> m_command_buffer;
+		std::array<VkCommandBuffer, FRAMES_IN_FLIGHT> m_command_buffer;
 
 		std::vector<Buffer>        m_buffer_pool;
 
 		std::vector<ShaderContext> m_shader_pool;
-
-		std::vector<MeshContext>   m_mesh_contexts;
 }; // class API
 
 } // namespace Vk

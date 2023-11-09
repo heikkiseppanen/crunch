@@ -7,14 +7,14 @@ namespace Cr
 		Vec3f min { -dimensions / 2, -dimensions / 2, -dimensions / 2 }; 
 		Vec3f max {  dimensions / 2,  dimensions / 2,  dimensions / 2 }; 
 
-		Vec3f luf { min.x, max.y, min.z };
-		Vec3f lub { min.x, max.y, max.z };
-		Vec3f ldf { min.x, min.y, min.z };
-		Vec3f ldb { min.x, min.y, max.z };
+		Vec3f luf { min.x, max.y, max.z };
+		Vec3f lub { min.x, max.y, min.z };
+		Vec3f ldf { min.x, min.y, max.z };
+		Vec3f ldb { min.x, min.y, min.z };
 
-		Vec3f ruf { max.x, max.y, min.z };
-		Vec3f rub { max.x, max.y, max.z };
-		Vec3f rdf { max.x, min.y, min.z };
+		Vec3f ruf { max.x, max.y, max.z };
+		Vec3f rub { max.x, max.y, min.z };
+		Vec3f rdf { max.x, min.y, max.z };
 		Vec3f rdb { max.x, min.y, min.z };
 
 		Vec2f uv00 { 0.0f, 0.0f };
@@ -25,40 +25,40 @@ namespace Cr
 		std::vector<Vertex> vertices
 		{
 			// Front
+			{ldb, uv00},
 			{lub, uv01},
 			{rub, uv11},
-			{ldb, uv00},
 			{rdb, uv10},
 
 			// Back
+			{rdf, uv00},
 			{ruf, uv01},
 			{luf, uv11},
-			{rdf, uv00},
 			{ldf, uv10},
 
 			// Left
+			{ldf, uv00},
 			{luf, uv01},
 			{lub, uv11},
-			{ldf, uv00},
 			{ldb, uv10},
 
 			// Right
+			{rdb, uv00},
 			{rub, uv01},
 			{ruf, uv11},
-			{rdb, uv00},
 			{rdf, uv10},
 
 			// Top
+			{lub, uv00},
 			{luf, uv01},
 			{ruf, uv11},
-			{lub, uv00},
 			{rub, uv10},
 
 			// Bottom
-			{ldf, uv01},
-			{rdf, uv11},
-			{ldb, uv00},
-			{rdb, uv10},
+			{ldf, uv00},
+			{ldb, uv01},
+			{rdb, uv11},
+			{rdf, uv10},
 		};
 
 		return vertices;
@@ -66,7 +66,7 @@ namespace Cr
 
 	std::vector<u32> get_cube_indices()
 	{
-		constexpr u32 FACE_INDICES[] { 0, 1, 3, 0, 2, 3 };
+		constexpr u32 FACE_INDICES[] { 0, 1, 2, 0, 2, 3 };
 		constexpr u32 FACE_COUNT = 6;
 
 		std::vector<u32> indices(36);

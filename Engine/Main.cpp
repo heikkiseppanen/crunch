@@ -2,12 +2,13 @@
 
 #include "Window/Window.hpp"
 
-// Temp headers
-#include "glm/common.hpp"
-#include "glm/gtc/matrix_transform.hpp"
+// Temp headers and values
+#include "Shared/Math.hpp"
+#include <glm/gtx/rotate_vector.hpp>
 
 #include "Graphics/Vulkan/API.hpp"
 #include "Shared/Filesystem.hpp"
+
 #include <iostream>
 
 constexpr u32 WINDOW_WIDTH = 1280;
@@ -24,20 +25,10 @@ int main(int argc, char *argv[])
 		
 		Cr::Vk::API vk{window.get_handle()};
 
-		std::vector<Cr::Vertex> vertices 
-		{ 
-			{{-0.5f, -0.5f, 0.5}, {0.0f, 0.0f}},
-			{{-0.5f,  0.5f, 0.5}, {0.0f, 1.0f}},
-			{{ 0.5f,  0.5f, 0.5}, {1.0f, 1.0f}},
-			{{ 0.5f, -0.5f, 0.5}, {1.0f, 0.0f}},
-		};
-
-		std::vector<u32> indices { 0, 1, 2, 0, 2, 3};
-
 		// Temporary assets
 
-		//std::vector<Cr::Vertex> vertices = Cr::get_cube_vertices(1.0f);
-		//std::vector<u32> indices = Cr::get_cube_indices(); 
+		std::vector<Cr::Vertex> vertices = Cr::get_cube_vertices(1.0f);
+		std::vector<u32> indices = Cr::get_cube_indices(); 
 
 		auto vert_spirv = Cr::read_binary_file("Assets/Shaders/triangle.vert.spv");
 		auto frag_spirv = Cr::read_binary_file("Assets/Shaders/triangle.frag.spv");
@@ -46,28 +37,55 @@ int main(int argc, char *argv[])
 		auto shader = vk.create_shader(vert_spirv, frag_spirv);
 
 		// Temporary entities and components
-//		using PositionComponent = Cr::Vec3f;
-//
-//		PositionComponent mesh_position   {0.0f, 0.0f, 0.0f};
-//		PositionComponent camera_position {3.0f, 3.0f, 3.0f};
-//
-//		auto aspect_ratio = float(WINDOW_WIDTH) / float(WINDOW_HEIGHT);
-//
-//		Cr::Vk::UniformBufferObject uniforms;
-//		uniforms.model   = glm::translate(Cr::Mat4f(), mesh_position);
-//		uniforms.view    = glm::lookAt(camera_position, mesh_position, Cr::VEC3F_UP);
-//		uniforms.project = glm::perspective(glm::radians(90.0f), aspect_ratio, 0.0f, 100.0f);
+		using PositionComponent = Cr::Vec3f;
+
+		PositionComponent mesh_position1   {-1.0f, 0.0f, 0.0f };
+		PositionComponent mesh_position2   { 1.0f, 0.0f, 0.0f };
+
+		PositionComponent camera_position  { 0.0f, 0.8f, 2.0f };
+
+		f32 aspect_ratio = f32(WINDOW_WIDTH) / f32(WINDOW_HEIGHT);
+
+		Cr::Vk::PushConstantObject uniforms;
+
+		auto model1   = glm::translate(Cr::Mat4f{1.0f}, mesh_position1);
+		auto model2   = glm::translate(Cr::Mat4f{1.0f}, mesh_position2);
+
+		uniforms.project = glm::perspective(glm::radians(90.0f), aspect_ratio, 0.1f, 100.0f);
 
 		std::cout << mesh << ' ' << shader << '\n';
+
+		// Init time
+		float time = window.get_time();
+		float time_delta = 0;
 
 		while (!window.should_close())
 		{
 			window.poll_events();
 
+
 			if (glfwGetKey(window.get_handle(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
 				window.set_to_close();
 
-			vk.draw(mesh, shader);
+			f32 rotation_speed = 50.0f * time_delta;
+			// Rotate mesh
+			camera_position  = glm::rotateY(camera_position, glm::radians(-rotation_speed)); 
+			uniforms.view    = glm::lookAt(camera_position, Cr::Vec3f{0.0f}, Cr::VEC3F_UP);
+
+			vk.begin_render();
+
+			model1 = glm::rotate(model1, glm::radians(rotation_speed), Cr::VEC3F_UP);
+			uniforms.model = model1;
+			vk.draw(mesh, shader, uniforms);
+
+			model2 = glm::rotate(model2, glm::radians(rotation_speed), Cr::VEC3F_UP);
+			uniforms.model = model2;
+			vk.draw(mesh, shader, uniforms);
+
+			vk.end_render();
+
+			time_delta = window.get_time() - time;
+			time += time_delta;
 		}
 
 		vk.destroy_mesh(mesh);
