@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.25)
 
 #===========================================================#
 # Third party dependencies                                  #
@@ -14,7 +14,20 @@ IF (NOT Vulkan_FOUND)
 ENDIF()
 
 IF (NOT Vulkan_FOUND)
-	message(FATAL_ERROR "No Vulkan library!")
+	message(FATAL_ERROR "No Vulkan library could be found!")
+ENDIF()
+
+find_package( ktx )
+
+IF (NOT ktx_FOUND)
+	find_library(ktx_LIBRARY NAMES ktx PATHS ${CMAKE_SOURCE_DIR}/Lib/KTX)
+	IF (ktx_LIBRARY)
+		set(ktx_FOUND ON)
+	ENDIF()
+ENDIF()
+
+IF (NOT ktx_FOUND)
+	message(FATAL_ERROR "No KTX library could be found!")
 ENDIF()
 
 set( GLFW_BUILD_TESTS OFF CACHE BOOL "Lib only" FORCE)
@@ -30,13 +43,17 @@ target_link_libraries(${PROJECT_NAME}
 		PUBLIC
 			vulkan
 			glfw
+			ktx
 		INTERFACE
 			glm
 )
+
 target_include_directories(${PROJECT_NAME} PRIVATE
 	"${LIB_DIR}/GLFW/include"
-	"${LIB_DIR}/VulkanMemoryAllocator"
+	"${LIB_DIR}/GLM"
+	"${LIB_DIR}/KTX/include"
 	"${LIB_DIR}/Vulkan/include"
+	"${LIB_DIR}/VulkanMemoryAllocator"
 )
 
 
