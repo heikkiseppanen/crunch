@@ -1,16 +1,15 @@
-# Crunch
-A rendering-/game-engine built with C/C++17 for educational purposes. The project is in initial stages and current main goal is prototyping a framework for Vulkan components and pipelines.
+<p align="center">
+  <img width="258" height="258" src="https://raw.githubusercontent.com/heikkiseppanen/crunch/master/crunch.png">
+</p>
+<h1 align="center">
+    Crunch
+</h1>
+A rendering-/game-engine project built with C/C++17 for educational purposes. The project is in initial stages and current main goal is prototyping a framework for Vulkan components and pipelines.
 
-# Dependencies
-- CMake
-
-## Included Libraries
-- GLM
-- Vulkan Memory Allocator
-- GLFW
+Dependencies included.
 
 # Building
-The project is maintained and has confirmed functionality only on Linux(x86-64) with GTX 1080 at the moment.
+The project is maintained and has confirmed functionality only on Linux(x86-64) with GTX 1080 at the moment. The project does include static Windows libraries but is untested at this moment.
 
 ## Linux (Make)
 ```
