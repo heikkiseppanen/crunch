@@ -17,16 +17,11 @@ IF (NOT Vulkan_FOUND)
 	message(FATAL_ERROR "No Vulkan library could be found!")
 ENDIF()
 
-find_package( ktx )
+find_library(ktx_LIBRARY NAMES ktx PATHS ${CMAKE_SOURCE_DIR}/Lib/KTX)
 
-IF (NOT ktx_FOUND)
-	find_library(ktx_LIBRARY NAMES ktx PATHS ${CMAKE_SOURCE_DIR}/Lib/KTX)
-	IF (ktx_LIBRARY)
-		set(ktx_FOUND ON)
-	ENDIF()
-ENDIF()
-
-IF (NOT ktx_FOUND)
+IF (ktx_LIBRARY)
+	set(ktx_FOUND ON)
+ELSE()
 	message(FATAL_ERROR "No KTX library could be found!")
 ENDIF()
 
