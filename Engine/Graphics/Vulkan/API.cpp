@@ -16,47 +16,11 @@
 namespace Cr::Vk
 {
 
-VKAPI_ATTR VkBool32 VKAPI_CALL API::debug_callback(
-	VkDebugUtilsMessageSeverityFlagBitsEXT severity,
-	VkDebugUtilsMessageTypeFlagsEXT type,
-	const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
-	void* p_user_data)
-{
-	(void)p_user_data;
-
-	auto& output = (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) ? std::cerr : std::cout;
-
-	output << "VK_LOG_";
-
-    switch (severity)
-	{
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT        : output << "VERBOSE" ; break;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT           : output << "INFO"   ; break;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT        : output << "WARNING"; break;
-		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT          : output << "ERROR"  ; break;
-		default: output << "UNKNOWN";
-	}
-
-	output << '_';
-
-    switch (type)
-	{
-		case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT                : output << "GENERAL"     ; break;
-		case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT             : output << "VALIDATION"  ; break;
-		case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT            : output << "PERFORMANCE" ; break;
-		case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT : output << "DEVICE_BIND" ; break;
-		default: output << "UNKNOWN";
-	}
-
-	output << ' ' << p_callback_data->pMessage << '\n';
-
-	return VK_FALSE;
-}
-
 API::API(GLFWwindow* surface_context, bool debug)
 {
 	u32 version;
 	VK_ASSERT_THROW(vkEnumerateInstanceVersion(&version), "Failed to get Vulkan version")
+
 	CR_ASSERT_THROW(version < VK_VERSION_1_3, "Not a supported vulkan version")
 
 	u32 glfw_extension_count;
@@ -268,10 +232,6 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 	vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
 	vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
-
-	std::cout << VK_VERSION_MAJOR(m_physical_device_properties.apiVersion) << '.';
-	std::cout << VK_VERSION_MINOR(m_physical_device_properties.apiVersion) << '.';
-	std::cout << VK_VERSION_PATCH(m_physical_device_properties.apiVersion) << '\n';
 
 	std::set<u32> unique_indices { indices.graphics, indices.presentation };
 
@@ -884,8 +844,6 @@ u32 API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>
 	mesh.vertex_buffer = static_cast<u32>(last - 1);
 	mesh.index_buffer  = static_cast<u32>(last);
 
-	std::cout << mesh.vertex_buffer << ' ' << mesh.index_buffer << '\n';
-
 	m_mesh_contexts.push_back(mesh);
 
 	return m_mesh_contexts.size() - 1;
@@ -1135,6 +1093,43 @@ void   API::destroy_buffer(Buffer& buffer)
 {
 	vmaDestroyBuffer(m_allocator, buffer.handle, buffer.allocation);
 	buffer = {};
+}
+
+VKAPI_ATTR VkBool32 VKAPI_CALL API::debug_callback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+	VkDebugUtilsMessageTypeFlagsEXT type,
+	const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
+	void* p_user_data)
+{
+	(void)p_user_data;
+
+	auto& output = (severity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) ? std::cerr : std::cout;
+
+	output << "VK_LOG_";
+
+    switch (severity)
+	{
+		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT        : output << "VERBOSE" ; break;
+		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT           : output << "INFO"   ; break;
+		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT        : output << "WARNING"; break;
+		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT          : output << "ERROR"  ; break;
+		default: output << "UNKNOWN";
+	}
+
+	output << '_';
+
+    switch (type)
+	{
+		case VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT                : output << "GENERAL"     ; break;
+		case VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT             : output << "VALIDATION"  ; break;
+		case VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT            : output << "PERFORMANCE" ; break;
+		case VK_DEBUG_UTILS_MESSAGE_TYPE_DEVICE_ADDRESS_BINDING_BIT_EXT : output << "DEVICE_BIND" ; break;
+		default: output << "UNKNOWN";
+	}
+
+	output << ' ' << p_callback_data->pMessage << '\n';
+
+	return VK_FALSE;
 }
 
 } // namespace Vk

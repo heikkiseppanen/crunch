@@ -41,7 +41,6 @@ int main(int argc, char *argv[])
 
 		Cr::Vec3f camera_position { 2.0f, 2.0f, -2.0f };
 
-
 		auto model_matrix_1   = glm::translate(Cr::Mat4f{1.0f}, mesh_position_1);
 		auto model_matrix_2   = glm::translate(Cr::Mat4f{1.0f}, mesh_position_2);
 
@@ -49,7 +48,7 @@ int main(int argc, char *argv[])
 
 		Cr::Vk::PushConstantObject uniforms;
 
-		uniforms.project = glm::perspective(glm::radians(90.0f), aspect_ratio, 0.1f, 100.0f);
+		uniforms.project = glm::perspective(glm::radians(70.0f), aspect_ratio, 0.1f, 100.0f);
 		uniforms.view    = glm::lookAt(camera_position, {0.0f, 0.0f, 0.0f}, Cr::VEC3F_UP);
 
 		// Main Loop

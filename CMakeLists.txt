@@ -30,4 +30,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Lib")
 
-target_compile_options(${PROJECT_NAME} PUBLIC -g -Wall -Werror -Wextra)
+target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Werror -Wextra)
