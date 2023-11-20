@@ -132,8 +132,8 @@ API::API(GLFWwindow* surface_context, bool debug)
 		vkGetPhysicalDeviceProperties(device, &properties);
 		vkGetPhysicalDeviceFeatures(device, &features);
 
-		if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
-		    properties.apiVersion <  VK_VERSION_1_3)
+		//if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+		if (properties.apiVersion <  VK_VERSION_1_3)
 			continue;
 
 		// Confirm queue families
@@ -342,14 +342,16 @@ API::API(GLFWwindow* surface_context, bool debug)
 	// Get number for images for swap chain
 
 	u32 image_count;
+	std::cout << "Swap chain min " << swap_chain_details.capabilities.minImageCount << ' ' << swap_chain_details.capabilities.maxImageCount << '\n';
 	if (swap_chain_details.capabilities.maxImageCount != 0)
 	{
 		image_count = std::clamp(4u, swap_chain_details.capabilities.minImageCount, swap_chain_details.capabilities.maxImageCount);
 	}
 	else
 	{
-		image_count = std::min(swap_chain_details.capabilities.minImageCount + 1, swap_chain_details.capabilities.maxImageCount);
+		image_count = std::max(swap_chain_details.capabilities.minImageCount + 1u, 4u);
 	}
+	std::cout << image_count << '\n';
 
 	// Create swap chain
 

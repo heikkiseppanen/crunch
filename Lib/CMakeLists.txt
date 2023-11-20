@@ -36,9 +36,9 @@ add_subdirectory( GLM )
 
 target_link_libraries(${PROJECT_NAME}
 		PUBLIC
-			vulkan
 			glfw
-			ktx
+			${Vulkan_LIBRARY}
+			${ktx_LIBRARY}
 		INTERFACE
 			glm
 )
