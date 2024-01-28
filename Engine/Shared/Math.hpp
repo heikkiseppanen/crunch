@@ -23,26 +23,26 @@ using namespace glm;
 
 namespace Cr
 {
-	using Vec2f = glm::vec<2, f32, glm::defaultp>;
-	using Vec3f = glm::vec<3, f32, glm::defaultp>;
-	using Vec4f = glm::vec<4, f32, glm::defaultp>;
+    using Vec2f = glm::vec<2, f32, glm::defaultp>;
+    using Vec3f = glm::vec<3, f32, glm::defaultp>;
+    using Vec4f = glm::vec<4, f32, glm::defaultp>;
 
-	using Mat3f = glm::mat<3, 3, f32, glm::defaultp>;
-	using Mat4f = glm::mat<4, 4, f32, glm::defaultp>;
+    using Mat3f = glm::mat<3, 3, f32, glm::defaultp>;
+    using Mat4f = glm::mat<4, 4, f32, glm::defaultp>;
 
-	constexpr Vec2f VEC2_UP    { 0.0f, 1.0f };
-	constexpr Vec2f VEC2_DOWN  { 0.0f,-1.0f };
-	constexpr Vec2f VEC2_LEFT  {-1.0f, 0.0f }; 
-	constexpr Vec2f VEC2_RIGHT { 1.0f, 0.0f };
+    constexpr Vec2f VEC2_UP    { 0.0f, 1.0f };
+    constexpr Vec2f VEC2_DOWN  { 0.0f,-1.0f };
+    constexpr Vec2f VEC2_LEFT  {-1.0f, 0.0f }; 
+    constexpr Vec2f VEC2_RIGHT { 1.0f, 0.0f };
 
-	constexpr Vec3f VEC3F_UP       { 0.0f, 1.0f, 0.0f };
-	constexpr Vec3f VEC3F_DOWN     { 0.0f,-1.0f, 0.0f };
-	constexpr Vec3f VEC3F_LEFT     {-1.0f, 0.0f, 0.0f }; 
-	constexpr Vec3f VEC3F_RIGHT    { 1.0f, 0.0f, 0.0f };
-	constexpr Vec3f VEC3F_FORWARD  {-1.0f, 0.0f, 0.0f }; 
-	constexpr Vec3f VEC3F_BACKWARD { 1.0f, 0.0f, 0.0f };
+    constexpr Vec3f VEC3F_UP       { 0.0f, 1.0f, 0.0f };
+    constexpr Vec3f VEC3F_DOWN     { 0.0f,-1.0f, 0.0f };
+    constexpr Vec3f VEC3F_LEFT     {-1.0f, 0.0f, 0.0f }; 
+    constexpr Vec3f VEC3F_RIGHT    { 1.0f, 0.0f, 0.0f };
+    constexpr Vec3f VEC3F_FORWARD  {-1.0f, 0.0f, 0.0f }; 
+    constexpr Vec3f VEC3F_BACKWARD { 1.0f, 0.0f, 0.0f };
 
-	constexpr Mat3f MAT3F_ID {1.0f};
+    constexpr Mat3f MAT3F_ID {1.0f};
 
-	constexpr f32 PI = M_PI;
+    constexpr f32 PI = M_PI;
 }

@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <stdexcept>
+#include <functional>
 
 using i8 =  int8_t;
 using i16 = int16_t;
@@ -29,9 +30,9 @@ using f64 = double;
 #define CR_TERM_RESET   "\x1B[0m"
 
 #define CR_ASSERT_THROW(COND, MSG) do {                               \
-	if (COND) {                                                       \
-		throw std::runtime_error(CR_TERM_RED MSG CR_TERM_RESET "\n"); \
-	}                                                                 \
+    if (COND) {                                                       \
+        throw std::runtime_error(CR_TERM_RED MSG CR_TERM_RESET "\n"); \
+    }                                                                 \
 } while(0);
 
 #define CR_LOG(FD, COLOR, MSG) std::fprintf(FD, COLOR "%s" CR_TERM_RESET "\n", MSG);
@@ -41,3 +42,21 @@ using f64 = double;
 #define CR_ERROR(MSG) CR_LOG(stderr, CR_TERM_RED, MSG)
 
 #define CR_ARRAY_SIZE(arr) (sizeof(arr) / sizeof(*arr))
+
+template<typename F>
+class Defer
+{
+    public:
+        constexpr Defer(const F callback) : m_function(callback) {};
+
+        Defer(const Defer& other) = delete;
+        Defer& operator = (const F&& callback) = delete;
+
+        Defer(Defer&& other) = delete;
+        Defer& operator = (Defer&& other) = delete;
+
+        ~Defer() { (void)m_function(); }
+
+    private:
+        std::function<void()> m_function;
+};
