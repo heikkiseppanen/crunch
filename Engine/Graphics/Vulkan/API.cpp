@@ -110,7 +110,6 @@ API::API(GLFWwindow* surface_context, bool debug)
     {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
         VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-        VK_KHR_MAINTENANCE1_EXTENSION_NAME
     };
 
     // Should maybe pack these and other useful information some GPU info structure
@@ -229,7 +228,6 @@ API::API(GLFWwindow* surface_context, bool debug)
     }
     
     CR_ASSERT_THROW(m_physical_device == nullptr, "No suitable Vulkan device found.")
-    bind_device_extension_functions(m_instance);
 
     vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
     vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
@@ -273,6 +271,8 @@ API::API(GLFWwindow* surface_context, bool debug)
     }
 
     VK_ASSERT_THROW(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_device), "Failed to create logical device")
+
+    bind_device_extension_functions(m_device);
 
     vkGetDeviceQueue(m_device, indices.graphics, 0, &m_graphics_queue);
     vkGetDeviceQueue(m_device, indices.presentation, 0, &m_presentation_queue);
@@ -866,15 +866,16 @@ void API::destroy_mesh(u32 mesh)
 
 u32  API::create_texture(const std::string& path)
 {
+    return 0;
     ktxTexture2* texture_file;
 
-    auto result = ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture_file);
+    const auto result = ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture_file);
 
     CR_ASSERT_THROW(result != KTX_SUCCESS, "Failed to load ktx image");
 
-    Defer clean_ktx = [&]{ ktxTexture_Destroy(ktxTexture(texture_file)); };
+    const Defer clean_ktx = [&]{ ktxTexture_Destroy(ktxTexture(texture_file)); };
 
-    auto* image_data = ktxTexture_GetData(ktxTexture(texture_file));
+    auto image_data = ktxTexture_GetData(ktxTexture(texture_file));
     auto data_size = ktxTexture_GetDataSize(ktxTexture(texture_file));
 
     // Create a staging buffer
@@ -885,14 +886,13 @@ u32  API::create_texture(const std::string& path)
     staging_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
     auto staging_buffer = create_buffer(staging_info, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
-    Defer clean_sb = [&] { destroy_buffer(staging_buffer); };
+    const Defer clean_sb = [&]{ destroy_buffer(staging_buffer); };
 
     std::copy(image_data, image_data + data_size, static_cast<decltype(image_data)>(staging_buffer.data));
 
     vmaFlushAllocation(m_allocator, staging_buffer.allocation, 0, VK_WHOLE_SIZE);
 
     // Create image
-
     VkImageCreateInfo image_info{};
     image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     image_info.pNext = nullptr;
@@ -922,15 +922,17 @@ u32  API::create_texture(const std::string& path)
     allocation_info.pUserData = nullptr;
     allocation_info.priority = 0;
     
-    //Image image;
-    //VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
+    Image image;
+    VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
 
-    //TextureContext texture;
-    //texture.width = image->baseWidth;
-    //texture.height = image->baseHeight;
+    m_image_pool.push_back(image);
+
+//    TextureContext texture;
+//    texture.width = image->baseWidth;
+//    texture.height = image->baseHeight;
 
 
-    return 0;
+    return m_image_pool.size() - 1;
 }
 
 void API::destroy_texture(u32)

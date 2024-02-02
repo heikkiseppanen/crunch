@@ -5,8 +5,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include "Graphics/Vulkan/Allocator.hpp"
 #include "Graphics/Mesh.hpp"
+#include "Graphics/Vulkan/Structs.hpp"
 
 #include <vector>
 #include <array>
@@ -49,29 +49,6 @@ struct TextureContext
     u16 height;
 };
 
-struct Image
-{
-    VkImage handle;
-    VmaAllocation allocation;
-    void* data; 
-};
-
-struct Buffer
-{
-    VkBuffer handle;
-    VmaAllocation allocation;
-    void* data; 
-};
-
-struct ShaderPipeline
-{
-    VkPipeline pipeline;
-    VkPipelineLayout pipeline_layout;
-
-    //VkDescriptorSetLayout descriptor_set_layout;
-    //std::array<VkDescriptorSet, FRAMES_IN_FLIGHT> descriptor_set_list;
-    //std::array<Buffer, FRAMES_IN_FLIGHT> uniform_buffer_list;
-};
 
 class API
 {
@@ -123,13 +100,14 @@ class API
             VkDebugUtilsMessageTypeFlagsEXT type,
             const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,
             void* p_user_data);
+
         VkSurfaceKHR m_surface;
 
-        VkPhysicalDevice m_physical_device;
+        VkPhysicalDevice           m_physical_device;
         VkPhysicalDeviceProperties m_physical_device_properties;
-        VkPhysicalDeviceFeatures m_physical_device_features;
+        VkPhysicalDeviceFeatures   m_physical_device_features;
 
-        VkDevice m_device;
+        VkDevice     m_device;
         VmaAllocator m_allocator;
 
         VkCommandPool m_command_pool;
