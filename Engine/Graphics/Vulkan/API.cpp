@@ -1,11 +1,11 @@
 #include "Graphics/Vulkan/API.hpp"
 #include "Graphics/Vulkan/Extension.hpp"
 
-#include "Shared/Filesystem.hpp"
+// #include "Shared/Filesystem.hpp"
 
 #include "Graphics/Vulkan/Debug.hpp"
 
-#include "ktx.h"
+// #include "ktx.h"
 
 #include <cstring>
 #include <iostream>
@@ -15,7 +15,7 @@
 #include <limits>
 #include <set>
 
-namespace Cr::Vk
+namespace Cr::Graphics::Vulkan
 {
 
 API::API(GLFWwindow* surface_context, bool debug)
@@ -81,7 +81,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     VK_ASSERT_THROW(vkCreateInstance(&instance_info, nullptr, &m_instance), "Failed to create a Vulkan instance");
 
     // Need to do device extension stuff separately?
-    VK_ASSERT_THROW(Vk::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls")
+    VK_ASSERT_THROW(Vulkan::Extension::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls")
 
     if (debug == true)
     {
@@ -98,7 +98,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         debug_messenger_info.pfnUserCallback = API::debug_callback;
         debug_messenger_info.pUserData       = nullptr;
 
-        VK_ASSERT_THROW(Vk::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger")
+        VK_ASSERT_THROW(Vulkan::Extension::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger")
     }
 
     VK_ASSERT_THROW(glfwCreateWindowSurface(m_instance, surface_context, nullptr, &m_surface), "Failed to create Vulkan surface") 
@@ -272,7 +272,7 @@ API::API(GLFWwindow* surface_context, bool debug)
 
     VK_ASSERT_THROW(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_device), "Failed to create logical device")
 
-    bind_device_extension_functions(m_device);
+    (void)Extension::bind_device_extension_functions(m_device);
 
     vkGetDeviceQueue(m_device, indices.graphics, 0, &m_graphics_queue);
     vkGetDeviceQueue(m_device, indices.presentation, 0, &m_presentation_queue);
@@ -343,7 +343,6 @@ API::API(GLFWwindow* surface_context, bool debug)
     // Get number for images for swap chain
 
     u32 image_count;
-    std::cout << "Swap chain min " << swap_chain_details.capabilities.minImageCount << ' ' << swap_chain_details.capabilities.maxImageCount << '\n';
     if (swap_chain_details.capabilities.maxImageCount != 0)
     {
         image_count = std::clamp(4u, swap_chain_details.capabilities.minImageCount, swap_chain_details.capabilities.maxImageCount);
@@ -352,7 +351,6 @@ API::API(GLFWwindow* surface_context, bool debug)
     {
         image_count = std::max(swap_chain_details.capabilities.minImageCount + 1u, 4u);
     }
-    std::cout << image_count << '\n';
 
     // Create swap chain
 
@@ -469,7 +467,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     {
         VK_ASSERT_THROW((vkCreateSemaphore(m_device, &semaphore_info, nullptr, &m_image_available_semaphore[frame]) |
                          vkCreateSemaphore(m_device, &semaphore_info, nullptr, &m_render_finished_semaphore[frame]) |
-                         vkCreateFence(m_device, &fence_info, nullptr, &m_in_flight_fence[frame])), "Failed to create synchronization objects")
+                         vkCreateFence(    m_device, &fence_info,     nullptr, &m_in_flight_fence[frame])), "Failed to create synchronization objects")
     }
 
     CR_INFO("Vulkan initialized")
@@ -479,9 +477,10 @@ API::~API()
 {
     vkDeviceWaitIdle(m_device);
 
+    // TODO Most of this is really stupid and should be moved to pools with that manage their lifetimes
     for (auto& buffer : m_buffer_pool)
     {
-        destroy_buffer(buffer);
+        if (buffer.handle) {vmaDestroyBuffer(m_allocator, buffer.handle, buffer.allocation);}
     }
 
     for (auto fence : m_in_flight_fence)
@@ -527,12 +526,12 @@ API::~API()
 
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
 
-    Vk::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
+    Vulkan::Extension::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
 
     vkDestroyInstance(m_instance, nullptr);
 }
 
-u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)
+ShaderID API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)
 {
     VkShaderModule vert_module = create_shader_module(vertex_spirv);
     VkShaderModule frag_module = create_shader_module(fragment_spirv);
@@ -796,10 +795,10 @@ u32  API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u
 //    return m_shader_pool.size() - 1;
 }
 
-void API::destroy_shader(u32 shader)
+void API::destroy_shader(ShaderID shader_id)
 {
     // Should do these on renderer level
-    auto& context = m_shader_pool[shader];
+    auto& context = m_shader_pool[shader_id];
     vkDestroyPipeline(m_device, context.pipeline, nullptr);
     vkDestroyPipelineLayout(m_device, context.pipeline_layout, nullptr);
 //    vkDestroyDescriptorSetLayout(m_device, context.descriptor_set_layout, nullptr);
@@ -811,41 +810,29 @@ void API::destroy_shader(u32 shader)
     context = {};
 }
 
-u32 API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>& indices)
+MeshID API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>& indices)
 {
     // TODO Shouldn't create buffers per mesh, but lets do for now!
 
-    VkBufferCreateInfo buffer_info {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.pNext = nullptr;
-    buffer_info.flags = 0;
-    buffer_info.size  = sizeof(vertices[0]) * vertices.size();
-    buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    buffer_info.queueFamilyIndexCount = 0;
-    buffer_info.pQueueFamilyIndices = nullptr;
+    const u64 vertex_buffer_size = sizeof(vertices[0]) * vertices.size();
+    const u64 index_buffer_size = sizeof(indices[0]) * indices.size();
 
-    Buffer buffer = create_buffer(buffer_info, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
-    std::copy(vertices.cbegin(), vertices.cend(), static_cast<Cr::Vertex*>(buffer.data));
-    m_buffer_pool.push_back(buffer);
+    MeshContext mesh {};
+    mesh.vertex_buffer_id = this->create_buffer(Graphics::BufferType::VERTEX, vertex_buffer_size);
+    mesh.index_buffer_id  = this->create_buffer(Graphics::BufferType::INDEX, index_buffer_size);
 
-    buffer_info.size  = sizeof(indices[0]) * indices.size();
-    buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    // TODO BEGIN should be driver level thing
+    auto& vertex_buffer = m_buffer_pool[mesh.vertex_buffer_id];
+    auto& index_buffer  = m_buffer_pool[mesh.index_buffer_id];
 
-    buffer = create_buffer(buffer_info, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
-    std::copy(indices.cbegin(), indices.cend(), static_cast<u32*>(buffer.data));
-    m_buffer_pool.push_back(buffer);
+    std::copy(vertices.cbegin(), vertices.cend(), static_cast<Cr::Vertex*>(vertex_buffer.data));
+    std::copy(indices.cbegin(), indices.cend(), static_cast<u32*>(index_buffer.data));
 
-    auto last = m_buffer_pool.size() - 1;
+    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, vertex_buffer.allocation, 0, VK_WHOLE_SIZE), "Failed to flush buffer allocation")
+    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, index_buffer.allocation,  0, VK_WHOLE_SIZE), "Failed to flush buffer allocation")
+    // END
 
-    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, m_buffer_pool[last - 1].allocation, 0, VK_WHOLE_SIZE), "Failed to flush vertex allocation")
-    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, m_buffer_pool[last].allocation, 0, VK_WHOLE_SIZE), "Failed to flush index allocation")
-
-    MeshContext mesh;
-    mesh.vertex_buffer = static_cast<u32>(last - 1);
-    mesh.index_buffer  = static_cast<u32>(last);
-
-    m_mesh_list.push_back(mesh);
+    m_mesh_list.emplace_back(mesh);
 
     return m_mesh_list.size() - 1;
 }
@@ -864,81 +851,88 @@ void API::destroy_mesh(u32 mesh)
     buffer = {};
 }
 
-u32  API::create_texture(const std::string& path)
-{
-    return 0;
-    ktxTexture2* texture_file;
+//u32 API::create_texture(const std::string& path)
+//{
+//    // TODO Move ktx import elsewhere
+//    ktxTexture2* ktx_handle;
+//
+//    CR_ASSERT_THROW(ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_handle) != KTX_SUCCESS, "Failed to load ktx image");
+//    const Defer ktx_destructor = [ktx_handle]{ ktxTexture_Destroy(ktxTexture(ktx_handle)); };
+//
+//    const ktx_uint8_t* image_data = ktxTexture_GetData(ktxTexture(ktx_handle));
+//    const ktx_size_t   data_size  = ktxTexture_GetDataSize(ktxTexture(ktx_handle));
+//
+//    // Create a staging buffer
+//    VkBufferCreateInfo staging_info {};
+//    staging_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+//    staging_info.size  = data_size;
+//    staging_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+//    staging_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+//    
+//    auto staging_buffer = create_buffer(staging_info, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
+//    const Defer staging_buffer_destructor = [&staging_buffer] { destroy_buffer(staging_buffer); };
+//
+//    std::copy(image_data, image_data + data_size, static_cast<decltype(image_data)>(staging_buffer.data));
+//
+//    vmaFlushAllocation(m_allocator, staging_buffer.allocation, 0, VK_WHOLE_SIZE);
+//
+//    // Create image
+//    VkImageCreateInfo image_info{};
+//    image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+//    image_info.pNext = nullptr;
+//    image_info.flags = 0;
+//    image_info.imageType = VK_IMAGE_TYPE_2D;
+//    image_info.format = static_cast<VkFormat>(ktx_handle->vkFormat);
+//    image_info.extent.width = ktx_handle->baseWidth;
+//    image_info.extent.height = ktx_handle->baseHeight;
+//    image_info.extent.depth = 1;
+//    image_info.mipLevels = 1;
+//    image_info.arrayLayers = 1;
+//    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+//    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+//    image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+//    image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+////    image_info.queueFamilyIndexCount;
+////    image_info.pQueueFamilyIndices;
+//    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+//
+//    VmaAllocationCreateInfo allocation_info {};
+//    allocation_info.flags           = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+//    allocation_info.usage           = VMA_MEMORY_USAGE_AUTO;
+//    allocation_info.requiredFlags   = 0;
+//    allocation_info.preferredFlags  = 0;
+//    allocation_info.memoryTypeBits  = 0;
+//    allocation_info.pool            = nullptr;
+//    allocation_info.pUserData       = nullptr;
+//    allocation_info.priority        = 0;
+//    
+//    Image image;
+//
+//    VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
+//
+//    m_image_pool.push_back(image);
+//
+//    VkCommandBufferAllocateInfo command_buffer_info {};
+//    command_buffer_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+//    command_buffer_info.pNext              = nullptr;
+//    command_buffer_info.commandPool        = m_command_pool;
+//    command_buffer_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
+//    command_buffer_info.commandBufferCount = 1;
+//
+//    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, ), "Failed to allocate command buffer") 
+//
+////    TextureContext texture;
+////    texture.width = image->baseWidth;
+////    texture.height = image->baseHeight;
+//
+//
+//    return m_image_pool.size() - 1;
+//}
 
-    const auto result = ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture_file);
-
-    CR_ASSERT_THROW(result != KTX_SUCCESS, "Failed to load ktx image");
-
-    const Defer clean_ktx = [&]{ ktxTexture_Destroy(ktxTexture(texture_file)); };
-
-    auto image_data = ktxTexture_GetData(ktxTexture(texture_file));
-    auto data_size = ktxTexture_GetDataSize(ktxTexture(texture_file));
-
-    // Create a staging buffer
-    VkBufferCreateInfo staging_info {};
-    staging_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    staging_info.size  = data_size;
-    staging_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    staging_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    
-    auto staging_buffer = create_buffer(staging_info, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
-    const Defer clean_sb = [&]{ destroy_buffer(staging_buffer); };
-
-    std::copy(image_data, image_data + data_size, static_cast<decltype(image_data)>(staging_buffer.data));
-
-    vmaFlushAllocation(m_allocator, staging_buffer.allocation, 0, VK_WHOLE_SIZE);
-
-    // Create image
-    VkImageCreateInfo image_info{};
-    image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_info.pNext = nullptr;
-    image_info.flags = 0;
-    image_info.imageType = VK_IMAGE_TYPE_2D;
-    image_info.format = static_cast<VkFormat>(texture_file->vkFormat);
-    image_info.extent.width = texture_file->baseWidth;
-    image_info.extent.height = texture_file->baseHeight;
-    image_info.extent.depth = 1;
-    image_info.mipLevels = 1;
-    image_info.arrayLayers = 1;
-    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-    image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//    image_info.queueFamilyIndexCount;
-//    image_info.pQueueFamilyIndices;
-    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    VmaAllocationCreateInfo allocation_info {};
-    allocation_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
-    allocation_info.requiredFlags = 0;
-    allocation_info.preferredFlags = 0;
-    allocation_info.memoryTypeBits = 0;
-    allocation_info.pool = nullptr;
-    allocation_info.pUserData = nullptr;
-    allocation_info.priority = 0;
-    
-    Image image;
-    VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
-
-    m_image_pool.push_back(image);
-
-//    TextureContext texture;
-//    texture.width = image->baseWidth;
-//    texture.height = image->baseHeight;
-
-
-    return m_image_pool.size() - 1;
-}
-
-void API::destroy_texture(u32)
-{
-    return ;
-}
+//void API::destroy_texture(ShaderID id)
+//{
+//    return ;
+//}
 
 void API::begin_render()
 {
@@ -1021,10 +1015,10 @@ void API::begin_render()
 
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-    Vk::CmdBeginRenderingKHR(command_buffer, &render_info);
+    Vulkan::Extension::CmdBeginRenderingKHR(command_buffer, &render_info);
 }
 
-void API::draw(u32 mesh_id, u32 shader_id, PushConstantObject& shader_parameters)
+void API::draw(MeshID mesh_id, ShaderID shader_id, PushConstantObject& uniforms)
 {
     VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
@@ -1034,15 +1028,15 @@ void API::draw(u32 mesh_id, u32 shader_id, PushConstantObject& shader_parameters
 
     auto& mesh_context = m_mesh_list[mesh_id];
 
-    VkBuffer vertex_buffer = m_buffer_pool[mesh_context.vertex_buffer].handle;
-    VkBuffer index_buffer = m_buffer_pool[mesh_context.index_buffer].handle;
+    VkBuffer vertex_buffer = m_buffer_pool[mesh_context.vertex_buffer_id].handle;
+    VkBuffer index_buffer  = m_buffer_pool[mesh_context.index_buffer_id].handle;
 
     VkDeviceSize offset[] = {0};
 
     vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, offset); 
     vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdPushConstants(command_buffer, shader.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantObject), &shader_parameters);
+    vkCmdPushConstants(command_buffer, shader.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantObject), &uniforms);
 
 //    VkDescriptorSet descriptor_set = shader.descriptor_set_list[m_current_frame];
 //
@@ -1061,7 +1055,7 @@ void API::end_render()
 
     VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
-    Vk::CmdEndRenderingKHR(command_buffer);
+    Vulkan::Extension::CmdEndRenderingKHR(command_buffer);
 
     VkImageMemoryBarrier image_memory_barrier
     {
@@ -1144,18 +1138,30 @@ VkShaderModule API::create_shader_module(const std::vector<u8>& spirv)
     return shader_module;
 };
 
-Buffer API::create_buffer(VkBufferCreateInfo& buffer_info, VmaAllocationCreateFlags allocation_flags)
+BufferID API::create_buffer(Graphics::BufferType type, u64 size)
 {
+    VkBufferCreateInfo buffer_info {};
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    buffer_info.size = size;
+
+    switch (type)
+    {
+        case Graphics::BufferType::VERTEX:
+        {
+            buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            break;
+        }
+        case Graphics::BufferType::INDEX:
+        {
+            buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+            break;
+        }
+    };
+
     VmaAllocationCreateInfo allocation_info {};
-    //allocation_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    allocation_info.flags = allocation_flags;
+    allocation_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
     allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
-    allocation_info.requiredFlags = 0;
-    allocation_info.preferredFlags = 0;
-    allocation_info.memoryTypeBits = 0;
-    allocation_info.pool = nullptr;
-    allocation_info.pUserData = nullptr;
-    allocation_info.priority = 0;
 
     Buffer buffer;
     VmaAllocationInfo allocation_details;
@@ -1164,13 +1170,18 @@ Buffer API::create_buffer(VkBufferCreateInfo& buffer_info, VmaAllocationCreateFl
 
     buffer.data = allocation_details.pMappedData;
 
-    return buffer;
+    m_buffer_pool.emplace_back(buffer); // TODO Buffer isn't exception safe
+
+    return static_cast<BufferID>(m_buffer_pool.size() - 1); // Overflowing u32 unlikely
 }
 
-void   API::destroy_buffer(Buffer& buffer)
+void API::destroy_buffer(BufferID id)
 {
+    auto& buffer = m_buffer_pool[id];
+
     vmaInvalidateAllocation(m_allocator, buffer.allocation, 0, VK_WHOLE_SIZE);
     vmaDestroyBuffer(m_allocator, buffer.handle, buffer.allocation);
+
     buffer = {};
 }
 

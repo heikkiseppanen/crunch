@@ -1,6 +1,6 @@
 #include "Graphics/Vulkan/Extension.hpp"
 
-namespace Cr::Vk
+namespace Cr::Graphics::Vulkan::Extension
 {
     // TODO Error handling
     PFN_vkCreateDebugUtilsMessengerEXT  CreateDebugUtilsMessengerEXT  = nullptr;

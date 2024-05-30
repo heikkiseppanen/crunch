@@ -1,10 +1,8 @@
 #pragma once
 
-#include <array>
-
 #include <vulkan/vulkan_core.h>
 
-namespace Cr::Vk
+namespace Cr::Graphics::Vulkan::Extension
 {    
     // Instance extensions
 

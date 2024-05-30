@@ -23,7 +23,7 @@ int main(int argc, char *argv[])
 
         Cr::Window window{WINDOW_WIDTH, WINDOW_HEIGHT, "Crunch"};
         
-        Cr::Vk::API vk{ window.get_handle() };
+        Cr::Graphics::Vulkan::API vk{ window.get_handle() };
 
         // Temporary assets
 
@@ -40,8 +40,8 @@ int main(int argc, char *argv[])
         Cr::Vec3f mesh_position_2 { 1.0f, 0.0f, 0.0f };
         // Temporary entities and components
 
-        auto texture = vk.create_texture("Assets/Textures/T_CrunchLogo_D.ktx2");
-        (void)texture;
+//        auto texture = vk.create_texture("Assets/Textures/T_CrunchLogo_D.ktx2");
+//        (void)texture;
 
         Cr::Vec3f camera_position { 2.0f, 2.0f, -2.0f };
 
@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
         f32 aspect_ratio = f32(WINDOW_WIDTH) / f32(WINDOW_HEIGHT);
 
-        Cr::Vk::PushConstantObject uniforms;
+        Cr::Graphics::Vulkan::PushConstantObject uniforms;
 
         uniforms.project = glm::perspective(glm::radians(70.0f), aspect_ratio, 0.1f, 100.0f);
         uniforms.view    = glm::lookAt(camera_position, {0.0f, 0.0f, 0.0f}, Cr::VEC3F_UP);

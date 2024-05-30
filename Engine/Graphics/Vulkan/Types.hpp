@@ -1,20 +1,24 @@
 #pragma once
 
 #include <vulkan_core.h>
+
 #include "Graphics/Vulkan/Allocator.hpp"
+
+namespace Cr::Graphics::Vulkan
+{
 
 struct Image
 {
-    VkImage handle;
-    VmaAllocation allocation;
-    void* data; 
+    VkImage handle = nullptr;
+    VmaAllocation allocation = nullptr;
+    void* data = nullptr; 
 };
 
 struct Buffer
 {
-    VkBuffer handle;
-    VmaAllocation allocation;
-    void* data; 
+    VkBuffer handle = nullptr;
+    VmaAllocation allocation = nullptr;
+    void* data = nullptr; 
 };
 
 struct ShaderPipeline
@@ -26,3 +30,5 @@ struct ShaderPipeline
     //std::array<VkDescriptorSet, FRAMES_IN_FLIGHT> descriptor_set_list;
     //std::array<Buffer, FRAMES_IN_FLIGHT> uniform_buffer_list;
 };
+
+} // namespace Cr::Vk
