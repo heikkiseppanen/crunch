@@ -5,7 +5,7 @@
 
 #include "Graphics/Vulkan/Debug.hpp"
 
-// #include "ktx.h"
+#include "ktx.h"
 
 #include <cstring>
 #include <iostream>
@@ -128,13 +128,16 @@ API::API(GLFWwindow* surface_context, bool debug)
         // Confirm properties and features
 
         VkPhysicalDeviceProperties properties;
-        VkPhysicalDeviceFeatures features;
-
         vkGetPhysicalDeviceProperties(device, &properties);
+
+        if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
+            properties.apiVersion <  VK_VERSION_1_3)
+            continue;
+
+        VkPhysicalDeviceFeatures features;
         vkGetPhysicalDeviceFeatures(device, &features);
 
-        //if (properties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU ||
-        if (properties.apiVersion <  VK_VERSION_1_3)
+        if (features.samplerAnisotropy != VK_TRUE)
             continue;
 
         // Confirm queue families
@@ -231,6 +234,9 @@ API::API(GLFWwindow* surface_context, bool debug)
 
     vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
     vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
+
+    CR_INFO("Suitable device:");
+    CR_INFO(m_physical_device_properties.deviceName);
 
     std::set<u32> unique_indices { indices.graphics, indices.presentation };
 
@@ -477,7 +483,15 @@ API::~API()
 {
     vkDeviceWaitIdle(m_device);
 
-    // TODO Most of this is really stupid and should be moved to pools with that manage their lifetimes
+    // TODO Most of this is really stupid and should be moved to pools or other lifetime management methods
+    
+    for (auto& image : m_image_pool)
+    {
+        if (image.sampler) vkDestroySampler(m_device, image.sampler, nullptr);
+        if (image.view)    vkDestroyImageView(m_device, image.view, nullptr);
+        if (image.handle)  vmaDestroyImage(m_allocator, image.handle, image.allocation);
+    }
+
     for (auto& buffer : m_buffer_pool)
     {
         if (buffer.handle) {vmaDestroyBuffer(m_allocator, buffer.handle, buffer.allocation);}
@@ -504,8 +518,8 @@ API::~API()
 
     for (auto context : m_shader_pool)
     {
-        vkDestroyPipeline(m_device, context.pipeline, nullptr);
         vkDestroyPipelineLayout(m_device, context.pipeline_layout, nullptr);
+        vkDestroyPipeline(m_device, context.pipeline, nullptr);
 //        vkDestroyDescriptorSetLayout(m_device, context.descriptor_set_layout, nullptr);
 //        for (auto& buffer : context.uniform_buffer_list)
 //        {
@@ -531,7 +545,7 @@ API::~API()
     vkDestroyInstance(m_instance, nullptr);
 }
 
-ShaderID API::create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)
+ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)
 {
     VkShaderModule vert_module = create_shader_module(vertex_spirv);
     VkShaderModule frag_module = create_shader_module(fragment_spirv);
@@ -795,22 +809,22 @@ ShaderID API::create_shader(const std::vector<u8>& vertex_spirv, const std::vect
 //    return m_shader_pool.size() - 1;
 }
 
-void API::destroy_shader(ShaderID shader_id)
+void API::shader_destroy(ShaderID shader_id)
 {
     // Should do these on renderer level
-    auto& context = m_shader_pool[shader_id];
-    vkDestroyPipeline(m_device, context.pipeline, nullptr);
-    vkDestroyPipelineLayout(m_device, context.pipeline_layout, nullptr);
+    auto& shader = m_shader_pool[shader_id];
+    vkDestroyPipeline(m_device, shader.pipeline, nullptr);
+    vkDestroyPipelineLayout(m_device, shader.pipeline_layout, nullptr);
 //    vkDestroyDescriptorSetLayout(m_device, context.descriptor_set_layout, nullptr);
 //    for (auto& buffer : context.uniform_buffer_list)
 //    {
 //        destroy_buffer(buffer);
 //    }
 
-    context = {};
+    shader = {};
 }
 
-MeshID API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>& indices)
+MeshID API::mesh_create(const std::vector<Vertex>& vertices, const std::vector<u32>& indices)
 {
     // TODO Shouldn't create buffers per mesh, but lets do for now!
 
@@ -818,8 +832,8 @@ MeshID API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u
     const u64 index_buffer_size = sizeof(indices[0]) * indices.size();
 
     MeshContext mesh {};
-    mesh.vertex_buffer_id = this->create_buffer(Graphics::BufferType::VERTEX, vertex_buffer_size);
-    mesh.index_buffer_id  = this->create_buffer(Graphics::BufferType::INDEX, index_buffer_size);
+    mesh.vertex_buffer_id = this->buffer_create(Graphics::BufferType::VERTEX, vertex_buffer_size);
+    mesh.index_buffer_id  = this->buffer_create(Graphics::BufferType::INDEX, index_buffer_size);
 
     // TODO BEGIN should be driver level thing
     auto& vertex_buffer = m_buffer_pool[mesh.vertex_buffer_id];
@@ -837,102 +851,236 @@ MeshID API::create_mesh(const std::vector<Vertex>& vertices, const std::vector<u
     return m_mesh_list.size() - 1;
 }
 
-void API::destroy_mesh(u32 mesh)
+void API::mesh_destroy(MeshID mesh_id)
 {
-    // Should do these on renderer level
-    vkDeviceWaitIdle(m_device);    
+    // NOTE Should rather just free up the context from within the buffer... am I going to end up writing my own vk buffer allocator at some point?
+    auto& mesh = m_mesh_list[mesh_id];
 
-    auto& context = m_mesh_list[mesh];
-    auto& buffer = m_buffer_pool[mesh];
+    this->buffer_destroy(mesh.vertex_buffer_id);
+    this->buffer_destroy(mesh.index_buffer_id);
 
-    vmaDestroyBuffer(m_allocator, buffer.handle, buffer.allocation);
-
-    context = {};
-    buffer = {};
+    // TODO Meshes don't have any sort of an invalidated state to work with, should be resolved by the ownership pool implementation honestly
 }
 
-//u32 API::create_texture(const std::string& path)
-//{
-//    // TODO Move ktx import elsewhere
-//    ktxTexture2* ktx_handle;
-//
-//    CR_ASSERT_THROW(ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_handle) != KTX_SUCCESS, "Failed to load ktx image");
-//    const Defer ktx_destructor = [ktx_handle]{ ktxTexture_Destroy(ktxTexture(ktx_handle)); };
-//
-//    const ktx_uint8_t* image_data = ktxTexture_GetData(ktxTexture(ktx_handle));
-//    const ktx_size_t   data_size  = ktxTexture_GetDataSize(ktxTexture(ktx_handle));
-//
-//    // Create a staging buffer
-//    VkBufferCreateInfo staging_info {};
-//    staging_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-//    staging_info.size  = data_size;
-//    staging_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-//    staging_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-//    
-//    auto staging_buffer = create_buffer(staging_info, VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT);
-//    const Defer staging_buffer_destructor = [&staging_buffer] { destroy_buffer(staging_buffer); };
-//
-//    std::copy(image_data, image_data + data_size, static_cast<decltype(image_data)>(staging_buffer.data));
-//
-//    vmaFlushAllocation(m_allocator, staging_buffer.allocation, 0, VK_WHOLE_SIZE);
-//
-//    // Create image
-//    VkImageCreateInfo image_info{};
-//    image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-//    image_info.pNext = nullptr;
-//    image_info.flags = 0;
-//    image_info.imageType = VK_IMAGE_TYPE_2D;
-//    image_info.format = static_cast<VkFormat>(ktx_handle->vkFormat);
-//    image_info.extent.width = ktx_handle->baseWidth;
-//    image_info.extent.height = ktx_handle->baseHeight;
-//    image_info.extent.depth = 1;
-//    image_info.mipLevels = 1;
-//    image_info.arrayLayers = 1;
-//    image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-//    image_info.tiling = VK_IMAGE_TILING_OPTIMAL;
-//    image_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-//    image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-////    image_info.queueFamilyIndexCount;
-////    image_info.pQueueFamilyIndices;
-//    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-//
-//    VmaAllocationCreateInfo allocation_info {};
-//    allocation_info.flags           = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-//    allocation_info.usage           = VMA_MEMORY_USAGE_AUTO;
-//    allocation_info.requiredFlags   = 0;
-//    allocation_info.preferredFlags  = 0;
-//    allocation_info.memoryTypeBits  = 0;
-//    allocation_info.pool            = nullptr;
-//    allocation_info.pUserData       = nullptr;
-//    allocation_info.priority        = 0;
-//    
-//    Image image;
-//
-//    VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
-//
-//    m_image_pool.push_back(image);
-//
-//    VkCommandBufferAllocateInfo command_buffer_info {};
-//    command_buffer_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-//    command_buffer_info.pNext              = nullptr;
-//    command_buffer_info.commandPool        = m_command_pool;
-//    command_buffer_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
-//    command_buffer_info.commandBufferCount = 1;
-//
-//    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, ), "Failed to allocate command buffer") 
-//
-////    TextureContext texture;
-////    texture.width = image->baseWidth;
-////    texture.height = image->baseHeight;
-//
-//
-//    return m_image_pool.size() - 1;
-//}
+u32 API::texture_create(const std::string& path)
+{
+    TextureContext texture;
 
-//void API::destroy_texture(ShaderID id)
-//{
-//    return ;
-//}
+    // TODO Move ktx import elsewhere
+    ktxTexture2* ktx_handle;
+
+    CR_ASSERT_THROW(ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_handle) != KTX_SUCCESS, "Failed to load ktx image");
+    const Defer ktx_cleanup = [ktx_handle]{ ktxTexture_Destroy(ktxTexture(ktx_handle)); };
+
+    const ktx_uint8_t* image_data = ktxTexture_GetData(ktxTexture(ktx_handle));
+    const ktx_size_t   image_size = ktxTexture_GetDataSize(ktxTexture(ktx_handle));
+
+    // Should we just have one of these statically?
+    const BufferID staging_buffer_id = buffer_create(BufferType::STAGING, image_size);
+    const Defer staging_buffer_cleanup = [this, staging_buffer_id] { this->buffer_destroy(staging_buffer_id); };
+
+    const auto& staging_buffer = m_buffer_pool[staging_buffer_id];
+    std::copy(image_data, image_data + image_size, static_cast<ktx_uint8_t*>(staging_buffer.data));
+
+    vmaFlushAllocation(m_allocator, staging_buffer.allocation, 0, VK_WHOLE_SIZE);
+
+    // NOTE This could work well as a builder pattern?
+    VkImageCreateInfo image_info{};
+    image_info.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    image_info.pNext         = nullptr;
+    image_info.flags         = 0;
+    image_info.imageType     = VK_IMAGE_TYPE_2D;
+    image_info.format        = static_cast<VkFormat>(ktx_handle->vkFormat);
+    image_info.extent.width  = ktx_handle->baseWidth;
+    image_info.extent.height = ktx_handle->baseHeight;
+    image_info.extent.depth  = 1;
+    image_info.mipLevels     = ktx_handle->numLevels;
+    image_info.arrayLayers   = ktx_handle->numLayers;
+    image_info.samples       = VK_SAMPLE_COUNT_1_BIT;
+    image_info.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    image_info.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    image_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+//    image_info.queueFamilyIndexCount;
+//    image_info.pQueueFamilyIndices;
+    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
+    VmaAllocationCreateInfo allocation_info {};
+    allocation_info.flags           = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    allocation_info.usage           = VMA_MEMORY_USAGE_AUTO;
+    
+    Image image;
+
+    VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
+
+    m_image_pool.push_back(image);
+    
+    texture.image_id = static_cast<decltype(texture.image_id)>(m_image_pool.size() - 1); // Overflow possibility, but unlikely
+
+    // TODO: Command buffer abstraction
+    // NOTE: Shouldn't have to create these for every single texture created
+    //       but rather manage uploading multiple at once on renderer level
+
+    VkCommandBuffer command_buffer;
+    VkCommandBufferAllocateInfo command_buffer_info {};
+    command_buffer_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    command_buffer_info.pNext              = nullptr;
+    command_buffer_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
+    command_buffer_info.commandPool        = m_command_pool;
+    command_buffer_info.commandBufferCount = 1;
+
+    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, &command_buffer), "Failed to allocate command buffer") 
+
+    const Defer command_buffer_cleanup = [this, command_buffer]{
+        vkFreeCommandBuffers(m_device, m_command_pool, 1, &command_buffer);
+    };
+
+    VkCommandBufferBeginInfo begin_info {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    VK_ASSERT_THROW(vkBeginCommandBuffer(command_buffer, &begin_info), "Failure to begin image upload command buffer");
+
+    { 
+        VkImageMemoryBarrier image_memory_barrier
+        {
+            .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext               = nullptr,
+            .srcAccessMask       = VK_ACCESS_NONE,                       // Wait for these accesses...
+            .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,         // ...and before these ones... 
+            .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,            // ...change layout...
+            .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // ...to this!
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image               = image.handle,
+            .subresourceRange
+            {
+                .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel    = 0,
+                .levelCount      = 1,
+                .baseArrayLayer  = 0,
+                .layerCount      = 1,
+            },
+        };
+        vkCmdPipelineBarrier(
+            command_buffer, 
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier
+        );
+    }
+
+    VkBufferImageCopy region_info {}; 
+    region_info.bufferOffset = 0;
+    region_info.bufferRowLength = 0;
+    region_info.bufferImageHeight = 0;
+
+    region_info.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region_info.imageSubresource.mipLevel = 0;
+    region_info.imageSubresource.baseArrayLayer = 0;
+    region_info.imageSubresource.layerCount = 1;
+
+    region_info.imageOffset = {0,0,0};
+    region_info.imageExtent = image_info.extent;
+
+    vkCmdCopyBufferToImage(command_buffer, staging_buffer.handle, image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region_info);
+            
+    { 
+        VkImageMemoryBarrier image_memory_barrier
+        {
+            .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+            .pNext               = nullptr,
+            .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT, 
+            .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
+            .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            .newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image               = image.handle,
+            .subresourceRange
+            {
+                .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
+                .baseMipLevel    = 0,
+                .levelCount      = 1,
+                .baseArrayLayer  = 0,
+                .layerCount      = 1,
+            },
+        };
+        vkCmdPipelineBarrier(command_buffer,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier
+        );
+    }
+
+    vkEndCommandBuffer(command_buffer);
+
+    VkSubmitInfo submit_info{};
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.pCommandBuffers = &command_buffer;
+    submit_info.commandBufferCount = 1;
+
+    VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, VK_NULL_HANDLE), "Failed to submit command buffer");
+    VK_ASSERT_THROW(vkQueueWaitIdle(m_graphics_queue), "Failure to wait for queue after image upload submission");
+
+    VkImageViewCreateInfo view_info {};
+    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    view_info.pNext = VK_NULL_HANDLE;
+    view_info.flags = 0;
+    view_info.image = image.handle;
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format = static_cast<VkFormat>(ktx_handle->vkFormat);
+    view_info.components = {}; // Default rgb
+    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    view_info.subresourceRange.baseMipLevel = 0;
+    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount = 1;
+
+    // Store into image for now... 
+    VK_ASSERT_THROW(vkCreateImageView(m_device, &view_info, nullptr, &image.view), "Failed to create image view for texture");
+
+    VkSamplerCreateInfo sampler_info {};
+    sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler_info.pNext = nullptr;
+    sampler_info.flags = 0;
+    sampler_info.magFilter  = VkFilter::VK_FILTER_LINEAR;
+    sampler_info.minFilter  = VkFilter::VK_FILTER_LINEAR;
+    sampler_info.addressModeU = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeV = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeW = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.mipmapMode = VkSamplerMipmapMode::VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler_info.mipLodBias = 0.0f;
+    sampler_info.anisotropyEnable = VK_TRUE; 
+    sampler_info.maxAnisotropy = m_physical_device_properties.limits.maxSamplerAnisotropy;
+    sampler_info.compareEnable = VK_FALSE;
+    sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+    sampler_info.minLod = 0.0f;
+    sampler_info.maxLod = 0.0f;
+    sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    sampler_info.unnormalizedCoordinates = VK_FALSE;
+
+    VK_ASSERT_THROW(vkCreateSampler(m_device, &sampler_info, nullptr, &image.sampler), "Failed to create image sampler for texture");
+
+    m_texture_list.emplace_back(texture);
+    return static_cast<TextureID>(m_texture_list.size() - 1); // Overflow danger
+}
+
+void API::texture_destroy(TextureID texture_id)
+{
+    TextureContext& texture = m_texture_list[texture_id];
+    this->image_destroy(texture.image_id);
+
+    // No invalidation state, should be done in ownership pool
+}
+
+void API::image_destroy(ImageID image_id)
+{
+    Image& image = m_image_pool[image_id];
+
+    if (image.handle) vkDestroySampler(m_device, image.sampler, nullptr);
+    if (image.view)   vkDestroyImageView(m_device, image.view, nullptr);
+    if (image.handle) vmaDestroyImage(m_allocator, image.handle, image.allocation);
+}
 
 void API::begin_render()
 {
@@ -1138,7 +1286,7 @@ VkShaderModule API::create_shader_module(const std::vector<u8>& spirv)
     return shader_module;
 };
 
-BufferID API::create_buffer(Graphics::BufferType type, u64 size)
+BufferID API::buffer_create(Graphics::BufferType type, u64 size)
 {
     VkBufferCreateInfo buffer_info {};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1149,14 +1297,17 @@ BufferID API::create_buffer(Graphics::BufferType type, u64 size)
     {
         case Graphics::BufferType::VERTEX:
         {
-            buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            break;
+            buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
         }
         case Graphics::BufferType::INDEX:
         {
-            buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            break;
+            buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
         }
+        case Graphics::BufferType::STAGING:
+        {
+            buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; break;
+        }
+        default: CR_ASSERT_THROW(true, "Unimplemented buffer type!");
     };
 
     VmaAllocationCreateInfo allocation_info {};
@@ -1175,7 +1326,7 @@ BufferID API::create_buffer(Graphics::BufferType type, u64 size)
     return static_cast<BufferID>(m_buffer_pool.size() - 1); // Overflowing u32 unlikely
 }
 
-void API::destroy_buffer(BufferID id)
+void API::buffer_destroy(BufferID id)
 {
     auto& buffer = m_buffer_pool[id];
 

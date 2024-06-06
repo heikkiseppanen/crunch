@@ -45,7 +45,7 @@ struct MeshContext
 
 struct TextureContext
 {
-    u32 image;
+    ImageID image_id;
     u16 width;
     u16 height;
 };
@@ -63,29 +63,30 @@ class API
         // TODO Expose shader module creation and pipeline configuration further 
         
         [[nodiscard]]
-        ShaderID create_shader(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv);
-        void     destroy_shader(ShaderID id);
+        ShaderID shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv);
+        void     shader_destroy(ShaderID shader_id);
 
         // TODO Abstract vertex data layout
         [[nodiscard]]
-        MeshID create_mesh(const std::vector<Vertex>& vertices, const std::vector<u32>& indices);
-        void   destroy_mesh(MeshID mesh);
+        MeshID mesh_create(const std::vector<Vertex>& vertices, const std::vector<u32>& indices);
+        void   mesh_destroy(MeshID mesh_id);
+
+        [[nodiscard]]
+        TextureID texture_create(const std::string& path);
+        void      texture_destroy(TextureID texture_id);
 
         // Command buffer recording?
         void begin_render();
-
         void draw(MeshID mesh_id, ShaderID shader_id, PushConstantObject& uniforms);
-
         void end_render();
-
-//        u32  create_texture(const std::string& path);
-//        void destroy_texture(u32 texture);
 
         // DRIVER API
 
         [[nodiscard]]
-        BufferID create_buffer(BufferType type, u64 size);
-        void     destroy_buffer(BufferID buffer);
+        BufferID buffer_create(BufferType type, u64 size);
+        void     buffer_destroy(BufferID buffer_id);
+
+        void image_destroy(ImageID image_id);
 
         VkShaderModule create_shader_module(const std::vector<u8>& spirv);
 

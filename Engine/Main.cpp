@@ -33,15 +33,15 @@ int main(int argc, char *argv[])
         auto vertex_shader_binary   = Cr::read_binary_file("Assets/Shaders/triangle.vert.spv");
         auto fragment_shader_binary = Cr::read_binary_file("Assets/Shaders/triangle.frag.spv");
 
-        auto mesh   = vk.create_mesh(vertices, indices);
-        auto shader = vk.create_shader(vertex_shader_binary, fragment_shader_binary);
+        auto mesh   = vk.mesh_create(vertices, indices);
+        auto shader = vk.shader_create(vertex_shader_binary, fragment_shader_binary);
 
         Cr::Vec3f mesh_position_1 {-1.0f, 0.0f, 0.0f };
         Cr::Vec3f mesh_position_2 { 1.0f, 0.0f, 0.0f };
         // Temporary entities and components
 
-//        auto texture = vk.create_texture("Assets/Textures/T_CrunchLogo_D.ktx2");
-//        (void)texture;
+        //auto texture = vk.texture_create("Assets/Textures/T_CrunchLogo_D.ktx2");
+        //(void)texture;
 
         Cr::Vec3f camera_position { 2.0f, 2.0f, -2.0f };
 

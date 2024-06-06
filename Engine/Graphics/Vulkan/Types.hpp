@@ -10,8 +10,9 @@ namespace Cr::Graphics::Vulkan
 struct Image
 {
     VkImage handle = nullptr;
+    VkImageView view = nullptr;
+    VkSampler sampler = nullptr;
     VmaAllocation allocation = nullptr;
-    void* data = nullptr; 
 };
 
 struct Buffer
