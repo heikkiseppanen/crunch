@@ -47,7 +47,7 @@ template<typename F>
 class Defer
 {
     public:
-        constexpr Defer(const F callback) : m_function(callback) {};
+        constexpr Defer(F&& callback) : m_function(std::forward<F>(callback)) {};
 
         Defer(const Defer& other) = delete;
         Defer& operator = (const F&& callback) = delete;
@@ -55,8 +55,8 @@ class Defer
         Defer(Defer&& other) = delete;
         Defer& operator = (Defer&& other) = delete;
 
-        ~Defer() { (void)m_function(); }
+        ~Defer() { m_function(); }
 
     private:
-        std::function<void()> m_function;
+        const F m_function;
 };
