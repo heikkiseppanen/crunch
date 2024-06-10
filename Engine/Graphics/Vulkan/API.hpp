@@ -30,7 +30,7 @@ struct QueueFamilyIndices
     u32 presentation;
 };
 
-struct PushConstantObject
+struct UniformBufferObject
 {
     alignas(16) Mat4f model;
     alignas(16) Mat4f view;
@@ -76,7 +76,7 @@ class API
 
         // Command buffer recording?
         void begin_render();
-        void draw(MeshID mesh_id, ShaderID shader_id, PushConstantObject& uniforms);
+        void draw(MeshID mesh_id, ShaderID shader_id, UniformBufferObject& uniforms);
         void end_render();
 
         // DRIVER API
@@ -120,7 +120,7 @@ class API
         VmaAllocator m_allocator;
 
         VkCommandPool m_command_pool;
-//        VkDescriptorPool m_descriptor_pool;
+        VkDescriptorPool m_descriptor_pool;
 
         VkQueue m_graphics_queue;
         VkQueue m_presentation_queue;

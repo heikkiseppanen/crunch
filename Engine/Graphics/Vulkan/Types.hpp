@@ -1,7 +1,10 @@
 #pragma once
 
+#include <array>
+
 #include <vulkan_core.h>
 
+#include "Graphics/Types.hpp"
 #include "Graphics/Vulkan/Allocator.hpp"
 
 namespace Cr::Graphics::Vulkan
@@ -24,12 +27,12 @@ struct Buffer
 
 struct ShaderPipeline
 {
-    VkPipeline pipeline;
-    VkPipelineLayout pipeline_layout;
+    VkPipeline handle = nullptr;
+    VkPipelineLayout layout = nullptr;
 
-    //VkDescriptorSetLayout descriptor_set_layout;
-    //std::array<VkDescriptorSet, FRAMES_IN_FLIGHT> descriptor_set_list;
-    //std::array<Buffer, FRAMES_IN_FLIGHT> uniform_buffer_list;
+    VkDescriptorSetLayout descriptor_set_layout = nullptr;
+    std::array<VkDescriptorSet, 3> descriptor_set_list {};
+    std::array<BufferID, 3> uniform_buffer_list {};
 };
 
 } // namespace Cr::Vk

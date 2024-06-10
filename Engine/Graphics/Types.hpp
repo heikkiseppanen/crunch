@@ -12,6 +12,6 @@ using TextureID = u32;
 using BufferID  = u32;
 using ImageID   = u32;
 
-enum class BufferType { VERTEX, INDEX, STAGING };
+enum class BufferType { VERTEX, INDEX, UNIFORM, STAGING };
 
 }; // Cr::Graphics

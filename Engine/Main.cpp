@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
         f32 aspect_ratio = f32(WINDOW_WIDTH) / f32(WINDOW_HEIGHT);
 
-        Cr::Graphics::Vulkan::PushConstantObject uniforms;
+        Cr::Graphics::Vulkan::UniformBufferObject uniforms;
 
         uniforms.project = glm::perspective(glm::radians(70.0f), aspect_ratio, 0.1f, 100.0f);
         uniforms.view    = glm::lookAt(camera_position, {0.0f, 0.0f, 0.0f}, Cr::VEC3F_UP);
