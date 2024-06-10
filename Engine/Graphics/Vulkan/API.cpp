@@ -864,7 +864,7 @@ void API::mesh_destroy(MeshID mesh_id)
 
 u32 API::texture_create(const std::string& path)
 {
-    TextureContext texture;
+    TextureContext texture = {};
 
     // TODO Move ktx import elsewhere
     ktxTexture2* ktx_handle;
@@ -905,8 +905,7 @@ u32 API::texture_create(const std::string& path)
     image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VmaAllocationCreateInfo allocation_info {};
-    allocation_info.flags           = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    allocation_info.usage           = VMA_MEMORY_USAGE_AUTO;
+    allocation_info.usage    = VMA_MEMORY_USAGE_AUTO;
     
     Image image;
 
@@ -1043,8 +1042,8 @@ u32 API::texture_create(const std::string& path)
     sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     sampler_info.pNext = nullptr;
     sampler_info.flags = 0;
-    sampler_info.magFilter  = VkFilter::VK_FILTER_LINEAR;
-    sampler_info.minFilter  = VkFilter::VK_FILTER_LINEAR;
+    sampler_info.magFilter = VkFilter::VK_FILTER_LINEAR;
+    sampler_info.minFilter = VkFilter::VK_FILTER_LINEAR;
     sampler_info.addressModeU = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeV = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
     sampler_info.addressModeW = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;

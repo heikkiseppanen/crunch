@@ -50,7 +50,6 @@ struct TextureContext
     u16 height;
 };
 
-
 class API
 {
     public:

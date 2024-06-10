@@ -40,8 +40,8 @@ int main(int argc, char *argv[])
         Cr::Vec3f mesh_position_2 { 1.0f, 0.0f, 0.0f };
         // Temporary entities and components
 
-        //auto texture = vk.texture_create("Assets/Textures/T_CrunchLogo_D.ktx2");
-        //(void)texture;
+        auto texture = vk.texture_create("Assets/Textures/T_CrunchLogo_D.ktx2");
+        (void)texture;
 
         Cr::Vec3f camera_position { 2.0f, 2.0f, -2.0f };
 
