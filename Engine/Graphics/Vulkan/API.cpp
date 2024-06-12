@@ -424,17 +424,24 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 //    // Create descriptor pool (Shader uniform buffers)
 
-    VkDescriptorPoolSize descriptor_pool_size{};
-    descriptor_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    descriptor_pool_size.descriptorCount = FRAMES_IN_FLIGHT;
+    std::array<VkDescriptorPoolSize, 2> descriptor_pool_size {
+        VkDescriptorPoolSize {
+            .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount = FRAMES_IN_FLIGHT,
+        },
+        VkDescriptorPoolSize {
+            .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = FRAMES_IN_FLIGHT,
+        }
+    };
 
     VkDescriptorPoolCreateInfo descriptor_pool_info{};
     descriptor_pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptor_pool_info.pNext = nullptr;
     descriptor_pool_info.flags = 0;
     descriptor_pool_info.maxSets = FRAMES_IN_FLIGHT;
-    descriptor_pool_info.poolSizeCount = 1;
-    descriptor_pool_info.pPoolSizes = &descriptor_pool_size;
+    descriptor_pool_info.poolSizeCount = descriptor_pool_size.size();
+    descriptor_pool_info.pPoolSizes    = descriptor_pool_size.data();
 
     VK_ASSERT_THROW(vkCreateDescriptorPool(m_device, &descriptor_pool_info, nullptr, &m_descriptor_pool), "Failed to create descriptor pool")
 
@@ -666,12 +673,19 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
 
 //    // Uniform buffer binding for shader
 //    // TODO Implement SPIRV Reflection library from Khronos to automate this for shader creation pipelines.
-    VkDescriptorSetLayoutBinding ubo_layout_bindings[] = {
-        {
+    std::array descriptor_set_layout_bindings = {
+        VkDescriptorSetLayoutBinding{
             .binding = 0,
             .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+            .pImmutableSamplers = nullptr,
+        },
+        VkDescriptorSetLayoutBinding{
+            .binding = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .descriptorCount = 1,
+            .stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
             .pImmutableSamplers = nullptr,
         },
     };
@@ -680,8 +694,8 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     ubo_layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     ubo_layout_info.pNext = nullptr;
     ubo_layout_info.flags = 0;
-    ubo_layout_info.bindingCount = 1;
-    ubo_layout_info.pBindings = ubo_layout_bindings;
+    ubo_layout_info.bindingCount = descriptor_set_layout_bindings.size();
+    ubo_layout_info.pBindings    = descriptor_set_layout_bindings.data();
 
     ShaderPipeline pipeline {};
 
@@ -766,19 +780,32 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
         descriptor_buffer_info.offset = 0;
         descriptor_buffer_info.range = sizeof(UniformBufferObject);
 
-        VkWriteDescriptorSet descriptor_write {};
-        descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptor_write.pNext = nullptr;
-        descriptor_write.dstSet = pipeline.descriptor_set_list[i];
-        descriptor_write.dstBinding = 0;
-        descriptor_write.dstArrayElement = 0;
-        descriptor_write.descriptorCount = 1;
-        descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptor_write.pBufferInfo = &descriptor_buffer_info;
-        //descriptor_write.pImageInfo = nullptr;
-        //descriptor_write.pTexelBufferView = nullptr;
+        VkDescriptorImageInfo descriptor_image_info {
+            .sampler     = m_image_pool.back().sampler, // TODO GROG HARDCODE
+            .imageView   = m_image_pool.back().view,    // TODO GROG HARDCODE
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
 
-        vkUpdateDescriptorSets(m_device, 1, &descriptor_write, 0, nullptr);
+        std::array writes {
+            VkWriteDescriptorSet {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = pipeline.descriptor_set_list[i],
+                .dstBinding = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pBufferInfo = &descriptor_buffer_info,
+            },
+            VkWriteDescriptorSet {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .dstSet = pipeline.descriptor_set_list[i],
+                .dstBinding = 1,
+                .descriptorCount = 1,
+                .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .pImageInfo = &descriptor_image_info,
+            },
+        };
+
+        vkUpdateDescriptorSets(m_device, writes.size(), writes.data(), 0, nullptr);
     }
 
     m_shader_pool.push_back(pipeline);

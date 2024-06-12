@@ -4,7 +4,7 @@
 <h1 align="center">
     Crunch
 </h1>
-A rendering-/game-engine project built with C/C++17 for educational purposes. The project is in initial stages and current main goal is prototyping a framework for Vulkan components and pipelines.
+Hobbyist rendering-/game-engine project built with C/C++20 for learning purposes. The project is in initial stages and current main goal is prototyping a framework for Vulkan components and pipelines.
 
 Dependencies included.
 

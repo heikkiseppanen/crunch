@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.25)
 
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 project( 
 	Crunch
 	VERSION 0.01
 	LANGUAGES CXX C 
 )
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(ENGINE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Engine)
 set(LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Lib)
@@ -30,4 +30,4 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/Lib")
 
-target_compile_options(${PROJECT_NAME} PUBLIC -Wall -Werror -Wextra)
+target_compile_options(${PROJECT_NAME} PUBLIC -std=c++20 -Wall -Werror -Wextra -Wno-missing-field-initializers)
