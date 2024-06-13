@@ -23,7 +23,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     u32 version;
     VK_ASSERT_THROW(vkEnumerateInstanceVersion(&version), "Failed to get Vulkan version")
 
-    CR_ASSERT_THROW(version < VK_VERSION_1_3, "Not a supported vulkan version")
+    CR_ASSERT_THROW(version >= VK_VERSION_1_3, "Not a supported vulkan version")
 
     u32 glfw_extension_count;
     const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -230,7 +230,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         m_physical_device = device;
     }
     
-    CR_ASSERT_THROW(m_physical_device == nullptr, "No suitable Vulkan device found.")
+    CR_ASSERT_THROW(m_physical_device != nullptr, "No suitable Vulkan device found.")
 
     vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
     vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
@@ -875,7 +875,7 @@ u32 API::texture_create(const std::string& path)
     // TODO Move ktx import elsewhere
     ktxTexture2* ktx_handle;
 
-    CR_ASSERT_THROW(ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_handle) != KTX_SUCCESS, "Failed to load ktx image");
+    CR_ASSERT_THROW(ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_handle) == KTX_SUCCESS, "Failed to load ktx image");
     const Defer ktx_cleanup = [ktx_handle]{ ktxTexture_Destroy(ktxTexture(ktx_handle)); };
 
     const ktx_uint8_t* image_data = ktxTexture_GetData(ktxTexture(ktx_handle));

@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <stdexcept>
-#include <functional>
 
 using i8 =  int8_t;
 using i16 = int16_t;
@@ -30,7 +29,7 @@ using f64 = double;
 #define CR_TERM_RESET   "\x1B[0m"
 
 #define CR_ASSERT_THROW(COND, MSG) do {                               \
-    if (COND) {                                                       \
+    if ((COND) == false) {                                            \
         throw std::runtime_error(CR_TERM_RED MSG CR_TERM_RESET "\n"); \
     }                                                                 \
 } while(0);
