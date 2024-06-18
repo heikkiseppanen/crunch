@@ -25,40 +25,40 @@ namespace Cr
         std::vector<Vertex> vertices
         {
             // Front
-            {ldb, uv00},
-            {lub, uv01},
-            {rub, uv11},
-            {rdb, uv10},
+            {ldb, uv01},
+            {lub, uv00},
+            {rub, uv10},
+            {rdb, uv11},
 
             // Back
-            {rdf, uv00},
-            {ruf, uv01},
-            {luf, uv11},
-            {ldf, uv10},
+            {rdf, uv01},
+            {ruf, uv00},
+            {luf, uv10},
+            {ldf, uv11},
 
             // Left
-            {ldf, uv00},
-            {luf, uv01},
-            {lub, uv11},
-            {ldb, uv10},
+            {ldf, uv01},
+            {luf, uv00},
+            {lub, uv10},
+            {ldb, uv11},
 
             // Right
-            {rdb, uv00},
-            {rub, uv01},
-            {ruf, uv11},
-            {rdf, uv10},
+            {rdb, uv01},
+            {rub, uv00},
+            {ruf, uv10},
+            {rdf, uv11},
 
             // Top
-            {lub, uv00},
-            {luf, uv01},
-            {ruf, uv11},
-            {rub, uv10},
+            {lub, uv01},
+            {luf, uv00},
+            {ruf, uv10},
+            {rub, uv11},
 
             // Bottom
-            {ldf, uv00},
-            {ldb, uv01},
-            {rdb, uv11},
-            {rdf, uv10},
+            {ldf, uv01},
+            {ldb, uv00},
+            {rdb, uv10},
+            {rdf, uv11},
         };
 
         return vertices;
