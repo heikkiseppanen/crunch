@@ -631,8 +631,8 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     rasterizer_info.rasterizerDiscardEnable = VK_FALSE;
     rasterizer_info.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer_info.lineWidth = 1.0f;
-    rasterizer_info.cullMode = VK_CULL_MODE_FRONT_BIT;
-    rasterizer_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    rasterizer_info.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer_info.frontFace = VK_FRONT_FACE_CLOCKWISE;
     rasterizer_info.depthBiasEnable = VK_FALSE;
     rasterizer_info.depthBiasConstantFactor = 0.0f;
     rasterizer_info.depthBiasClamp = 0.0f;
@@ -959,9 +959,9 @@ u32 API::texture_create(const std::string& path)
             {
                 .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel    = 0,
-                .levelCount      = 1,
+                .levelCount      = ktx_handle->numLevels,
                 .baseArrayLayer  = 0,
-                .layerCount      = 1,
+                .layerCount      = ktx_handle->numLayers,
             },
         };
         vkCmdPipelineBarrier(
@@ -1003,9 +1003,9 @@ u32 API::texture_create(const std::string& path)
             {
                 .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
                 .baseMipLevel    = 0,
-                .levelCount      = 1,
+                .levelCount      = ktx_handle->numLevels,
                 .baseArrayLayer  = 0,
-                .layerCount      = 1,
+                .layerCount      = ktx_handle->numLayers,
             },
         };
         vkCmdPipelineBarrier(command_buffer,
@@ -1035,9 +1035,9 @@ u32 API::texture_create(const std::string& path)
     view_info.components = {}; // Default rgb
     view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     view_info.subresourceRange.baseMipLevel = 0;
-    view_info.subresourceRange.levelCount = 1;
+    view_info.subresourceRange.levelCount = ktx_handle->numLevels;
     view_info.subresourceRange.baseArrayLayer = 0;
-    view_info.subresourceRange.layerCount = 1;
+    view_info.subresourceRange.layerCount = ktx_handle->numLayers;
 
     // Store into image for now... 
     VK_ASSERT_THROW(vkCreateImageView(m_device, &view_info, nullptr, &image.view), "Failed to create image view for texture");
@@ -1178,7 +1178,7 @@ void API::begin_render()
 
 void API::draw(MeshID mesh_id, ShaderID shader_id, UniformBufferObject& uniforms)
 {
-    VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
+    const VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
     ShaderPipeline& pipeline = m_shader_pool[shader_id];
 
@@ -1199,7 +1199,6 @@ void API::draw(MeshID mesh_id, ShaderID shader_id, UniformBufferObject& uniforms
     VkDescriptorSet descriptor_set = pipeline.descriptor_set_list[m_current_frame];
 
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptor_set, 0, nullptr);
-
 //    // Update shader uniforms
     auto& uniform_buffer = m_buffer_pool[pipeline.uniform_buffer_list[m_current_frame]];
     UniformBufferObject* ubo = static_cast<UniformBufferObject*>(uniform_buffer.data);
@@ -1219,7 +1218,7 @@ void API::end_render()
 
     VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
-    Vulkan::Extension::CmdEndRenderingKHR(command_buffer);
+    Extension::CmdEndRenderingKHR(command_buffer);
 
     VkImageMemoryBarrier image_memory_barrier
     {
