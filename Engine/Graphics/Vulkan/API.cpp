@@ -835,22 +835,17 @@ MeshID API::mesh_create(const std::vector<Vertex>& vertices, const std::vector<u
     // TODO Shouldn't create buffers per mesh, but lets do for now!
 
     const u64 vertex_buffer_size = sizeof(vertices[0]) * vertices.size();
-    const u64 index_buffer_size = sizeof(indices[0]) * indices.size();
+    const u64 index_buffer_size  = sizeof(indices[0]) * indices.size();
 
     MeshContext mesh {};
     mesh.vertex_buffer_id = this->buffer_create(Graphics::BufferType::VERTEX, vertex_buffer_size);
     mesh.index_buffer_id  = this->buffer_create(Graphics::BufferType::INDEX, index_buffer_size);
 
-    // TODO BEGIN should be driver level thing
-    auto& vertex_buffer = m_buffer_pool[mesh.vertex_buffer_id];
-    auto& index_buffer  = m_buffer_pool[mesh.index_buffer_id];
+    this->buffer_map_range(mesh.vertex_buffer_id, vertices.begin(), vertices.end(), 0);
+    this->buffer_map_range(mesh.index_buffer_id, indices.begin(), indices.end(), 0);
 
-    std::copy(vertices.cbegin(), vertices.cend(), static_cast<Cr::Vertex*>(vertex_buffer.data));
-    std::copy(indices.cbegin(), indices.cend(), static_cast<u32*>(index_buffer.data));
-
-    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, vertex_buffer.allocation, 0, VK_WHOLE_SIZE), "Failed to flush buffer allocation")
-    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, index_buffer.allocation,  0, VK_WHOLE_SIZE), "Failed to flush buffer allocation")
-    // END
+    this->buffer_flush(mesh.vertex_buffer_id);
+    this->buffer_flush(mesh.index_buffer_id);
 
     m_mesh_list.emplace_back(mesh);
 
@@ -1336,6 +1331,13 @@ BufferID API::buffer_create(Graphics::BufferType type, u64 size)
     m_buffer_pool.emplace_back(buffer); // TODO Buffer isn't exception safe
 
     return static_cast<BufferID>(m_buffer_pool.size() - 1); // Overflowing u32 unlikely
+}
+
+void API::buffer_flush(BufferID id)
+{
+    auto& buffer = m_buffer_pool[id];
+
+    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, buffer.allocation,  0, VK_WHOLE_SIZE), "Failed to flush buffer allocation")
 }
 
 void API::buffer_destroy(BufferID id)
