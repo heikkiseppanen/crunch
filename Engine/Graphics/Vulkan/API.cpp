@@ -427,11 +427,11 @@ API::API(GLFWwindow* surface_context, bool debug)
     std::array<VkDescriptorPoolSize, 2> descriptor_pool_size {
         VkDescriptorPoolSize {
             .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount = FRAMES_IN_FLIGHT,
+            .descriptorCount = 128,
         },
         VkDescriptorPoolSize {
             .type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .descriptorCount = FRAMES_IN_FLIGHT,
+            .descriptorCount = 128,
         }
     };
 
@@ -439,7 +439,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     descriptor_pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptor_pool_info.pNext = nullptr;
     descriptor_pool_info.flags = 0;
-    descriptor_pool_info.maxSets = FRAMES_IN_FLIGHT;
+    descriptor_pool_info.maxSets = 128;
     descriptor_pool_info.poolSizeCount = descriptor_pool_size.size();
     descriptor_pool_info.pPoolSizes    = descriptor_pool_size.data();
 
@@ -703,17 +703,17 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
 
     // Push constants
 
-//    VkPushConstantRange push_constant_range {};
-//    push_constant_range.offset = 0;
-//    push_constant_range.size = sizeof(PushConstantObject);
-//    push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    VkPushConstantRange push_constant_range {};
+    push_constant_range.offset = 0;
+    push_constant_range.size = sizeof(PushConstantObject);
+    push_constant_range.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_info.setLayoutCount = 1;
     pipeline_layout_info.pSetLayouts = &pipeline.descriptor_set_layout;
-//    pipeline_layout_info.pushConstantRangeCount = 1;
-//    pipeline_layout_info.pPushConstantRanges = &push_constant_range;
+    pipeline_layout_info.pushConstantRangeCount = 1;
+    pipeline_layout_info.pPushConstantRanges = &push_constant_range;
 
     VK_ASSERT_THROW(vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr, &pipeline.layout), "Failed to create pipeline layout")
 
@@ -813,6 +813,13 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     return m_shader_pool.size() - 1;
 }
 
+void API::shader_set_uniform(ShaderID id, const UniformBufferObject& uniforms)
+{
+    auto uniform_buffer_id = m_shader_pool[id].uniform_buffer_list[m_current_frame];
+
+    this->buffer_map_range(uniform_buffer_id, &uniforms, 1, 0);
+}
+
 void API::shader_destroy(ShaderID shader_id)
 {
     auto& pipeline = m_shader_pool[shader_id];
@@ -841,8 +848,8 @@ MeshID API::mesh_create(const std::vector<Vertex>& vertices, const std::vector<u
     mesh.vertex_buffer_id = this->buffer_create(Graphics::BufferType::VERTEX, vertex_buffer_size);
     mesh.index_buffer_id  = this->buffer_create(Graphics::BufferType::INDEX, index_buffer_size);
 
-    this->buffer_map_range(mesh.vertex_buffer_id, vertices.begin(), vertices.end(), 0);
-    this->buffer_map_range(mesh.index_buffer_id, indices.begin(), indices.end(), 0);
+    this->buffer_map_range(mesh.vertex_buffer_id, vertices.data(), vertices.size(), 0);
+    this->buffer_map_range(mesh.index_buffer_id, indices.data(), indices.size(), 0);
 
     this->buffer_flush(mesh.vertex_buffer_id);
     this->buffer_flush(mesh.index_buffer_id);
@@ -1171,7 +1178,7 @@ void API::begin_render()
     Vulkan::Extension::CmdBeginRenderingKHR(command_buffer, &render_info);
 }
 
-void API::draw(MeshID mesh_id, ShaderID shader_id, UniformBufferObject& uniforms)
+void API::draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& push_constants)
 {
     const VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
@@ -1189,17 +1196,11 @@ void API::draw(MeshID mesh_id, ShaderID shader_id, UniformBufferObject& uniforms
     vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer, offset); 
     vkCmdBindIndexBuffer(command_buffer, index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
-//    vkCmdPushConstants(command_buffer, shader.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(UniformBufferObject), &uniforms);
+    vkCmdPushConstants(command_buffer, pipeline.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstantObject), &push_constants);
 
     VkDescriptorSet descriptor_set = pipeline.descriptor_set_list[m_current_frame];
 
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptor_set, 0, nullptr);
-//    // Update shader uniforms
-    auto& uniform_buffer = m_buffer_pool[pipeline.uniform_buffer_list[m_current_frame]];
-    UniformBufferObject* ubo = static_cast<UniformBufferObject*>(uniform_buffer.data);
-    *ubo = uniforms;
-//
-    vmaFlushAllocation(m_allocator, uniform_buffer.allocation, 0, VK_WHOLE_SIZE);
 
     vkCmdDrawIndexed(command_buffer, 36, 1, 0, 0, 0);
 }

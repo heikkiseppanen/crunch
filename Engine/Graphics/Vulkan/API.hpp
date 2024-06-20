@@ -30,11 +30,14 @@ struct QueueFamilyIndices
     u32 presentation;
 };
 
+struct PushConstantObject // 128 byte minimum support
+{
+    alignas(16) Mat4f model; // 64
+};
+
 struct UniformBufferObject
 {
-    alignas(16) Mat4f model;
-    alignas(16) Mat4f view;
-    alignas(16) Mat4f project;
+    alignas(16) Mat4f projected_view;
 };
 
 struct MeshContext
@@ -63,6 +66,7 @@ class API
         
         [[nodiscard]]
         ShaderID shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv);
+        void     shader_set_uniform(ShaderID id, const UniformBufferObject& uniforms);
         void     shader_destroy(ShaderID shader_id);
 
         // TODO Abstract vertex data layout
@@ -76,14 +80,23 @@ class API
 
         // Command buffer recording?
         void begin_render();
-        void draw(MeshID mesh_id, ShaderID shader_id, UniformBufferObject& uniforms);
+        void draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& push_constants);
         void end_render();
 
         // DRIVER API
 
         [[nodiscard]]
         BufferID buffer_create(BufferType type, u64 size);
-        void     buffer_destroy(BufferID buffer_id);
+
+        template<typename T>
+        void     buffer_map_range(BufferID id, const T* begin, u64 count, u64 offset)
+        {
+            const auto& buffer = m_buffer_pool[id];
+            std::copy(begin, begin + count, static_cast<T*>(buffer.data) + offset);
+        }
+
+        void buffer_flush(BufferID id);
+        void buffer_destroy(BufferID id);
 
         void image_destroy(ImageID image_id);
 
@@ -91,14 +104,9 @@ class API
 
     private:
 
-
         // RENDERING COMPONENTS
         std::vector<MeshContext> m_mesh_list;
         std::vector<TextureContext> m_texture_list;
-
-        std::vector<Buffer>         m_buffer_pool;
-        std::vector<Image>          m_image_pool;
-        std::vector<ShaderPipeline> m_shader_pool;
 
         // API COMPONENTS
         VkInstance m_instance;
@@ -135,6 +143,10 @@ class API
         u32 m_image_index = 0;
         std::vector<VkImage>     m_swap_images;
         std::vector<VkImageView> m_swap_image_views;
+
+        std::vector<Buffer>         m_buffer_pool;
+        std::vector<Image>          m_image_pool;
+        std::vector<ShaderPipeline> m_shader_pool;
 
         std::array<VkFence,     FRAMES_IN_FLIGHT> m_in_flight_fence;
         std::array<VkSemaphore, FRAMES_IN_FLIGHT> m_image_available_semaphore;

@@ -50,10 +50,11 @@ int main(int argc, char *argv[])
 
         f32 aspect_ratio = f32(WINDOW_WIDTH) / f32(WINDOW_HEIGHT);
 
-        Cr::Graphics::Vulkan::UniformBufferObject uniforms;
-
-        uniforms.project = glm::perspective(glm::radians(70.0f), aspect_ratio, 0.1f, 100.0f);
-        uniforms.view    = glm::lookAt(camera_position, {0.0f, 0.0f, 0.0f}, Cr::VEC3F_UP);
+        Cr::Graphics::Vulkan::UniformBufferObject frame_data
+        {
+            .projected_view = glm::perspective(glm::radians(70.0f), aspect_ratio, 0.1f, 100.0f)
+                            * glm::lookAt(camera_position, {0.0f, 0.0f, 0.0f}, Cr::VEC3F_UP)
+        };
 
         // Main Loop
 
@@ -69,17 +70,22 @@ int main(int argc, char *argv[])
             if (glfwGetKey(window.get_handle(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
                 window.set_to_close();
 
+
+            vk.shader_set_uniform(shader, frame_data);
+
             vk.begin_render();
 
             f32 rotation_velocity = 50.0f * time_delta;
 
+            Cr::Graphics::Vulkan::PushConstantObject instance_data;
+
             model_matrix_1 = glm::rotate(model_matrix_1, glm::radians(rotation_velocity), Cr::VEC3F_UP);
-            uniforms.model = model_matrix_1;
-            vk.draw(mesh, shader, uniforms);
+            instance_data.model = model_matrix_1;
+            vk.draw(mesh, shader, instance_data);
 
             model_matrix_2 = glm::rotate(model_matrix_2, glm::radians(-rotation_velocity), Cr::VEC3F_UP);
-            uniforms.model = model_matrix_2;
-            vk.draw(mesh, shader, uniforms);
+            instance_data.model = model_matrix_2;
+            vk.draw(mesh, shader, instance_data);
 
             vk.end_render();
         }
