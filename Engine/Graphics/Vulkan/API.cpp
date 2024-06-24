@@ -21,9 +21,9 @@ namespace Cr::Graphics::Vulkan
 API::API(GLFWwindow* surface_context, bool debug)
 {
     u32 version;
-    VK_ASSERT_THROW(vkEnumerateInstanceVersion(&version), "Failed to get Vulkan version")
+    VK_ASSERT_THROW(vkEnumerateInstanceVersion(&version), "Failed to get Vulkan version");
 
-    CR_ASSERT_THROW(version >= VK_VERSION_1_3, "Not a supported vulkan version")
+    CR_ASSERT_THROW(version >= VK_VERSION_1_3, "Not a supported vulkan version");
 
     u32 glfw_extension_count;
     const char** glfw_extensions = glfwGetRequiredInstanceExtensions(&glfw_extension_count);
@@ -38,10 +38,10 @@ API::API(GLFWwindow* surface_context, bool debug)
         validation_layers.push_back("VK_LAYER_KHRONOS_validation");
 
         u32 available_layer_count;
-        VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, nullptr), "Failed to get VkLayerProperties") 
+        VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, nullptr), "Failed to get VkLayerProperties");
 
         std::vector<VkLayerProperties> available_layers(available_layer_count);
-        VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, available_layers.data()), "Failed to get VkLayerProperties") 
+        VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, available_layers.data()), "Failed to get VkLayerProperties");
 
         for (auto it = validation_layers.begin(); it != validation_layers.end(); ++it)
         {
@@ -81,7 +81,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     VK_ASSERT_THROW(vkCreateInstance(&instance_info, nullptr, &m_instance), "Failed to create a Vulkan instance");
 
     // Need to do device extension stuff separately?
-    VK_ASSERT_THROW(Vulkan::Extension::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls")
+    VK_ASSERT_THROW(Vulkan::Extension::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls");
 
     if (debug == true)
     {
@@ -98,10 +98,10 @@ API::API(GLFWwindow* surface_context, bool debug)
         debug_messenger_info.pfnUserCallback = API::debug_callback;
         debug_messenger_info.pUserData       = nullptr;
 
-        VK_ASSERT_THROW(Vulkan::Extension::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger")
+        VK_ASSERT_THROW(Vulkan::Extension::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger");
     }
 
-    VK_ASSERT_THROW(glfwCreateWindowSurface(m_instance, surface_context, nullptr, &m_surface), "Failed to create Vulkan surface") 
+    VK_ASSERT_THROW(glfwCreateWindowSurface(m_instance, surface_context, nullptr, &m_surface), "Failed to create Vulkan surface");
 
     // Physical device
 
@@ -203,24 +203,24 @@ API::API(GLFWwindow* surface_context, bool debug)
         }
 
         // Confirm Swap chain support
-        VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &swap_chain_details.capabilities), "Failed to fetch physical device surface capabilities")
+        VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &swap_chain_details.capabilities), "Failed to fetch physical device surface capabilities");
 
         u32 format_count;
-        VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, nullptr), "Failed to get physical device surface format count")
+        VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, nullptr), "Failed to get physical device surface format count");
         
         if (format_count > 0)
         {
             swap_chain_details.formats.resize(format_count);
-            VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, swap_chain_details.formats.data()), "Failed to get physical device surface formats")
+            VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &format_count, swap_chain_details.formats.data()), "Failed to get physical device surface formats");
         }
 
         u32 present_mode_count;
-        VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, nullptr), "Failed to get physical device surface present_mode count")
+        VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, nullptr), "Failed to get physical device surface present_mode count");
         
         if (present_mode_count > 0)
         {
             swap_chain_details.present_modes.resize(present_mode_count);
-            VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, swap_chain_details.present_modes.data()), "Failed to get physical device surface present_modes")
+            VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, swap_chain_details.present_modes.data()), "Failed to get physical device surface present_modes");
         }
 
         if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty())
@@ -230,7 +230,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         m_physical_device = device;
     }
     
-    CR_ASSERT_THROW(m_physical_device != nullptr, "No suitable Vulkan device found.")
+    CR_ASSERT_THROW(m_physical_device != nullptr, "No suitable Vulkan device found.");
 
     vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
     vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
@@ -276,7 +276,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         logical_device_info.enabledLayerCount   = static_cast<u32>(validation_layers.size());
     }
 
-    VK_ASSERT_THROW(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_device), "Failed to create logical device")
+    VK_ASSERT_THROW(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_device), "Failed to create logical device");
 
     (void)Extension::bind_device_extension_functions(m_device);
 
@@ -300,7 +300,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         .pTypeExternalMemoryHandleTypes = nullptr,
     };
 
-    VK_ASSERT_THROW(vmaCreateAllocator(&allocator_info, &m_allocator), "Failed to initialize VulkanMemoryAllocator")
+    VK_ASSERT_THROW(vmaCreateAllocator(&allocator_info, &m_allocator), "Failed to initialize VulkanMemoryAllocator");
 
     // Select swap chain format
 
@@ -387,7 +387,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         swap_chain_info.pQueueFamilyIndices   = temp_indices; 
     }
 
-    VK_ASSERT_THROW(vkCreateSwapchainKHR(m_device, &swap_chain_info, nullptr, &m_swap_chain), "Failed to create a swap chain.")
+    VK_ASSERT_THROW(vkCreateSwapchainKHR(m_device, &swap_chain_info, nullptr, &m_swap_chain), "Failed to create a swap chain.");
     m_swap_format = surface_format.format;
     m_swap_extent = swap_extent;
 
@@ -419,7 +419,7 @@ API::API(GLFWwindow* surface_context, bool debug)
         image_info.subresourceRange.baseArrayLayer = 0;
         image_info.subresourceRange.layerCount     = 1;
         
-        VK_ASSERT_THROW(vkCreateImageView(m_device, &image_info, nullptr, &m_swap_image_views[i]), "Failed to create swap chain image view")
+        VK_ASSERT_THROW(vkCreateImageView(m_device, &image_info, nullptr, &m_swap_image_views[i]), "Failed to create swap chain image view");
     }
 
 //    // Create descriptor pool (Shader uniform buffers)
@@ -443,7 +443,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     descriptor_pool_info.poolSizeCount = descriptor_pool_size.size();
     descriptor_pool_info.pPoolSizes    = descriptor_pool_size.data();
 
-    VK_ASSERT_THROW(vkCreateDescriptorPool(m_device, &descriptor_pool_info, nullptr, &m_descriptor_pool), "Failed to create descriptor pool")
+    VK_ASSERT_THROW(vkCreateDescriptorPool(m_device, &descriptor_pool_info, nullptr, &m_descriptor_pool), "Failed to create descriptor pool");
 
     // Create command pool
 
@@ -453,7 +453,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     command_pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
     command_pool_info.queueFamilyIndex = indices.graphics;
 
-    VK_ASSERT_THROW(vkCreateCommandPool(m_device, &command_pool_info, nullptr, &m_command_pool), "Failed to create command pool")
+    VK_ASSERT_THROW(vkCreateCommandPool(m_device, &command_pool_info, nullptr, &m_command_pool), "Failed to create command pool");
 
     // Create command buffers and sync objects
 
@@ -464,7 +464,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     command_buffer_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
     command_buffer_info.commandBufferCount = FRAMES_IN_FLIGHT;
 
-    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, m_command_buffer.data()), "Failed to allocate command buffer") 
+    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, m_command_buffer.data()), "Failed to allocate command buffer");
 
     VkSemaphoreCreateInfo semaphore_info {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -480,10 +480,10 @@ API::API(GLFWwindow* surface_context, bool debug)
     {
         VK_ASSERT_THROW((vkCreateSemaphore(m_device, &semaphore_info, nullptr, &m_image_available_semaphore[frame]) |
                          vkCreateSemaphore(m_device, &semaphore_info, nullptr, &m_render_finished_semaphore[frame]) |
-                         vkCreateFence(    m_device, &fence_info,     nullptr, &m_in_flight_fence[frame])), "Failed to create synchronization objects")
+                         vkCreateFence(    m_device, &fence_info,     nullptr, &m_in_flight_fence[frame])), "Failed to create synchronization objects");
     }
 
-    CR_INFO("Vulkan initialized")
+    CR_INFO("Vulkan initialized");
 }
 
 API::~API()
@@ -715,7 +715,7 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     pipeline_layout_info.pushConstantRangeCount = 1;
     pipeline_layout_info.pPushConstantRanges = &push_constant_range;
 
-    VK_ASSERT_THROW(vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr, &pipeline.layout), "Failed to create pipeline layout")
+    VK_ASSERT_THROW(vkCreatePipelineLayout(m_device, &pipeline_layout_info, nullptr, &pipeline.layout), "Failed to create pipeline layout");
 
     // DYNAMIC RENDERING EXT
     VkPipelineRenderingCreateInfoKHR pipeline_rendering_info{};
@@ -743,7 +743,7 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     pipeline_info.basePipelineHandle  = nullptr;
     pipeline_info.basePipelineIndex   = -1;
 
-    VK_ASSERT_THROW(vkCreateGraphicsPipelines(m_device, nullptr, 1, &pipeline_info, nullptr, &pipeline.handle), "Failed to create graphics pipeline")
+    VK_ASSERT_THROW(vkCreateGraphicsPipelines(m_device, nullptr, 1, &pipeline_info, nullptr, &pipeline.handle), "Failed to create graphics pipeline");
 
     vkDestroyShaderModule(m_device, vert_module, nullptr);
     vkDestroyShaderModule(m_device, frag_module, nullptr);
@@ -769,7 +769,7 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     descriptor_set_info.descriptorSetCount = pipeline.descriptor_set_list.size();
     descriptor_set_info.pSetLayouts = descriptor_set_layouts.data(); // NEEDS AS MANY LAYOUTS AS SETS!
 
-    VK_ASSERT_THROW(vkAllocateDescriptorSets(m_device, &descriptor_set_info, pipeline.descriptor_set_list.data()), "Failed to allocate descriptor sets")
+    VK_ASSERT_THROW(vkAllocateDescriptorSets(m_device, &descriptor_set_info, pipeline.descriptor_set_list.data()), "Failed to allocate descriptor sets");
 
     for (std::size_t i = 0; i < pipeline.descriptor_set_list.size(); ++i)
     {
@@ -933,7 +933,7 @@ u32 API::texture_create(const std::string& path)
     command_buffer_info.commandPool        = m_command_pool;
     command_buffer_info.commandBufferCount = 1;
 
-    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, &command_buffer), "Failed to allocate command buffer") 
+    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, &command_buffer), "Failed to allocate command buffer");
 
     const Defer command_buffer_cleanup = [this, command_buffer]{
         vkFreeCommandBuffers(m_device, m_command_pool, 1, &command_buffer);
@@ -1100,10 +1100,10 @@ void API::begin_render()
 
     VkSemaphore image_available = m_image_available_semaphore[m_current_frame];
 
-    VK_ASSERT_THROW(vkWaitForFences(m_device, 1, &fence, VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences")
-    VK_ASSERT_THROW(vkResetFences(m_device, 1, &fence), "Failed to reset renderloop fence")
+    VK_ASSERT_THROW(vkWaitForFences(m_device, 1, &fence, VK_TRUE, std::numeric_limits<u64>::max()), "Failed while waiting for fences");
+    VK_ASSERT_THROW(vkResetFences(m_device, 1, &fence), "Failed to reset renderloop fence");
 
-    VK_ASSERT_THROW(vkAcquireNextImageKHR(m_device, m_swap_chain, std::numeric_limits<u64>::max(), image_available, nullptr, &m_image_index), "Failed to acquire next image")
+    VK_ASSERT_THROW(vkAcquireNextImageKHR(m_device, m_swap_chain, std::numeric_limits<u64>::max(), image_available, nullptr, &m_image_index), "Failed to acquire next image");
 
     VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
@@ -1113,7 +1113,7 @@ void API::begin_render()
     begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     begin_info.pInheritanceInfo = nullptr;
 
-    VK_ASSERT_THROW(vkBeginCommandBuffer(command_buffer, &begin_info), "Failed to begin recording command buffer")
+    VK_ASSERT_THROW(vkBeginCommandBuffer(command_buffer, &begin_info), "Failed to begin recording command buffer");
 
     VkRenderingAttachmentInfoKHR render_attachment_info{};
     render_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -1243,7 +1243,7 @@ void API::end_render()
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
         0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier);
 
-    VK_ASSERT_THROW(vkEndCommandBuffer(command_buffer), "Failed to end recording command buffer")
+    VK_ASSERT_THROW(vkEndCommandBuffer(command_buffer), "Failed to end recording command buffer");
 
     // Submit commands
 
@@ -1259,7 +1259,7 @@ void API::end_render()
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &render_finished;
 
-    VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, fence), "Failed to submit draw command buffer")
+    VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, fence), "Failed to submit draw command buffer");
 
     //  Present image 
 
@@ -1272,7 +1272,7 @@ void API::end_render()
     present_info.pImageIndices = &m_image_index;
     present_info.pResults = nullptr;
 
-    VK_ASSERT_THROW(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present")
+    VK_ASSERT_THROW(vkQueuePresentKHR(m_presentation_queue, &present_info), "Failed to present");
 
     if (++m_current_frame == FRAMES_IN_FLIGHT)
         m_current_frame = 0;
@@ -1286,7 +1286,7 @@ VkShaderModule API::create_shader_module(const std::vector<u8>& spirv)
     shader_module_info.pCode    = reinterpret_cast<const uint32_t*>(spirv.data());
 
     VkShaderModule shader_module;
-    VK_ASSERT_THROW(vkCreateShaderModule(m_device, &shader_module_info, nullptr, &shader_module), "Failed to create shader module")
+    VK_ASSERT_THROW(vkCreateShaderModule(m_device, &shader_module_info, nullptr, &shader_module), "Failed to create shader module");
 
     return shader_module;
 };
@@ -1338,7 +1338,7 @@ void API::buffer_flush(BufferID id)
 {
     auto& buffer = m_buffer_pool[id];
 
-    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, buffer.allocation,  0, VK_WHOLE_SIZE), "Failed to flush buffer allocation")
+    VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, buffer.allocation,  0, VK_WHOLE_SIZE), "Failed to flush buffer allocation");
 }
 
 void API::buffer_destroy(BufferID id)

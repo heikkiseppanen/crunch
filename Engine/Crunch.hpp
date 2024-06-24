@@ -32,7 +32,7 @@ using f64 = double;
     if ((COND) == false) {                                            \
         throw std::runtime_error(CR_TERM_RED MSG CR_TERM_RESET "\n"); \
     }                                                                 \
-} while(0);
+} while(0)
 
 #define CR_LOG(FD, COLOR, MSG) std::fprintf(FD, COLOR "%s" CR_TERM_RESET "\n", MSG);
 
