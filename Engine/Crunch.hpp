@@ -34,11 +34,11 @@ using f64 = double;
     }                                                                 \
 } while(0)
 
-#define CR_LOG(FD, COLOR, MSG) std::fprintf(FD, COLOR "%s" CR_TERM_RESET "\n", MSG);
+#define CR_FLOG(FD, COLOR,  ...) do { std::fputs(COLOR, FD); std::fprintf(FD, __VA_ARGS__); std::fputs(CR_TERM_RESET"\n", FD); } while(0)
 
-#define CR_INFO(MSG)  CR_LOG(stdout, CR_TERM_DEFAULT, MSG)
-#define CR_WARN(MSG)  CR_LOG(stderr, CR_TERM_YELLOW, MSG)
-#define CR_ERROR(MSG) CR_LOG(stderr, CR_TERM_RED, MSG)
+#define CR_INFO(...)   CR_FLOG(stdout, CR_TERM_DEFAULT, __VA_ARGS__)
+#define CR_WARN(...)   CR_FLOG(stderr, CR_TERM_YELLOW,  __VA_ARGS__)
+#define CR_ERROR(...)  CR_FLOG(stderr, CR_TERM_RED,     __VA_ARGS__)
 
 #define CR_ARRAY_SIZE(arr) (sizeof(arr) / sizeof(*arr))
 
