@@ -13,7 +13,10 @@ namespace Cr
         Vec2f uv;
     };
 
-    std::vector<Vertex> get_cube_vertices(f32 dimensions);
-    std::vector<u32>    get_cube_indices();
+    std::vector<Vertex> get_cube_vertices(f32 dimensions, u32 subdivision);
+    std::vector<u32>    get_cube_indices(u32 subdivision);
+
+    std::vector<Vertex> get_quad_sphere_vertices(f32 dimensions, u32 subdivision);
+    std::vector<u32>    get_quad_sphere_indices(u32 subdivision);
 
 }

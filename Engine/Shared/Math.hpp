@@ -20,8 +20,6 @@
 
 // Lightly wrap GLM if hit by a sudden urge to get rid of it.
 
-using namespace glm;
-
 namespace Cr
 {
     using Vec2f = glm::vec<2, f32, glm::defaultp>;
@@ -45,5 +43,5 @@ namespace Cr
 
     constexpr Mat3f MAT3F_ID {1.0f};
 
-    constexpr f32 PI = M_PI;
+    constexpr f32 PI = glm::pi<f32>();
 }

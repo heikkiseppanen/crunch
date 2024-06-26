@@ -27,16 +27,24 @@ int main(int argc, char *argv[])
 
         // Temporary assets
 
-        std::vector<Cr::Vertex> vertices = Cr::get_cube_vertices(1.0f);
-        std::vector<u32>        indices  = Cr::get_cube_indices(); 
-
         auto vertex_shader_binary   = Cr::read_binary_file("Assets/Shaders/triangle.vert.spv");
         auto fragment_shader_binary = Cr::read_binary_file("Assets/Shaders/triangle.frag.spv");
 
         auto texture = vk.texture_create("Assets/Textures/T_CrunchLogo_D.ktx2"); // Need to make texture before shader for now...
         (void)texture;
 
-        auto mesh   = vk.mesh_create(vertices, indices);
+        auto cube_mesh   = vk.mesh_create
+        (
+            Cr::get_cube_vertices(1.0f, 0),
+            Cr::get_cube_indices(0) 
+        );
+
+        auto sphere_mesh = vk.mesh_create
+        (
+            Cr::get_quad_sphere_vertices(1.0f, 3),
+            Cr::get_quad_sphere_indices(3) 
+        );
+
         auto shader = vk.shader_create(vertex_shader_binary, fragment_shader_binary);
 
         Cr::Vec3f mesh_position_1 {-1.0f, 0.0f, 0.0f };
@@ -68,8 +76,9 @@ int main(int argc, char *argv[])
             window.poll_events();
 
             if (glfwGetKey(window.get_handle(), GLFW_KEY_ESCAPE) == GLFW_PRESS)
+            {
                 window.set_to_close();
-
+            }
 
             vk.shader_set_uniform(shader, frame_data);
 
@@ -81,11 +90,11 @@ int main(int argc, char *argv[])
 
             model_matrix_1 = glm::rotate(model_matrix_1, glm::radians(rotation_velocity), Cr::VEC3F_UP);
             instance_data.model = model_matrix_1;
-            vk.draw(mesh, shader, instance_data);
+            vk.draw(cube_mesh, shader, instance_data);
 
             model_matrix_2 = glm::rotate(model_matrix_2, glm::radians(-rotation_velocity), Cr::VEC3F_UP);
             instance_data.model = model_matrix_2;
-            vk.draw(mesh, shader, instance_data);
+            vk.draw(sphere_mesh, shader, instance_data);
 
             vk.end_render();
         }

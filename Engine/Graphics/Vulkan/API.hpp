@@ -44,6 +44,7 @@ struct MeshContext
 {
     u32 vertex_buffer_id;
     u32 index_buffer_id;
+    u32 index_count;
 };
 
 struct TextureContext

@@ -844,9 +844,11 @@ MeshID API::mesh_create(const std::vector<Vertex>& vertices, const std::vector<u
     const u64 vertex_buffer_size = sizeof(vertices[0]) * vertices.size();
     const u64 index_buffer_size  = sizeof(indices[0]) * indices.size();
 
-    MeshContext mesh {};
-    mesh.vertex_buffer_id = this->buffer_create(Graphics::BufferType::VERTEX, vertex_buffer_size);
-    mesh.index_buffer_id  = this->buffer_create(Graphics::BufferType::INDEX, index_buffer_size);
+    MeshContext mesh {
+        .vertex_buffer_id = this->buffer_create(Graphics::BufferType::VERTEX, vertex_buffer_size),
+        .index_buffer_id  = this->buffer_create(Graphics::BufferType::INDEX, index_buffer_size),
+        .index_count      = static_cast<u32>(indices.size()),
+    };
 
     this->buffer_map_range(mesh.vertex_buffer_id, vertices.data(), vertices.size(), 0);
     this->buffer_map_range(mesh.index_buffer_id, indices.data(), indices.size(), 0);
@@ -1202,7 +1204,7 @@ void API::draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& pus
 
     vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.layout, 0, 1, &descriptor_set, 0, nullptr);
 
-    vkCmdDrawIndexed(command_buffer, 36, 1, 0, 0, 0);
+    vkCmdDrawIndexed(command_buffer, mesh_context.index_count, 1, 0, 0, 0);
 }
 
 void API::end_render()
