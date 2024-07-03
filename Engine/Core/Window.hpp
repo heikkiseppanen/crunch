@@ -1,23 +1,20 @@
 #pragma once
 
 #include "Crunch.hpp"
+#include "Shared/ClassUtility.hpp"
 
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
 #include <string>
 
-namespace Cr
+namespace Cr::Core
 {
 
-class Window
+struct Window : public NoValueSemantics
 {
+    using Context = GLFWwindow*;
 
-private:
-
-    GLFWwindow *m_handle;
-
-public:
+    Context context = {};
 
     Window() = delete;
     Window(i32 width, i32 height, const std::string& title);
@@ -26,12 +23,11 @@ public:
     inline void poll_events() const noexcept  { glfwPollEvents(); };
 
     [[nodiscard]]
-    inline bool should_close() const noexcept { return glfwWindowShouldClose(m_handle); };
-    inline void set_to_close() const noexcept { glfwSetWindowShouldClose(m_handle, GLFW_TRUE); };
+    inline bool should_close() const noexcept { return glfwWindowShouldClose(context); };
+    inline void set_to_close() const noexcept { glfwSetWindowShouldClose(context, GLFW_TRUE); };
 
+    [[nodiscard]]
     inline float get_time() const noexcept { return glfwGetTime(); }
-
-    constexpr inline GLFWwindow* get_handle() const noexcept { return m_handle; };
 
 }; // class Window
 

@@ -1,11 +1,10 @@
 #include "Graphics/Vulkan/API.hpp"
 #include "Graphics/Vulkan/Extension.hpp"
-
-// #include "Shared/Filesystem.hpp"
-
 #include "Graphics/Vulkan/Debug.hpp"
 
-#include "ktx.h"
+#include "Core/Window.hpp"
+
+#include <ktx.h>
 
 #include <cstring>
 #include <iostream>
@@ -18,7 +17,7 @@
 namespace Cr::Graphics::Vulkan
 {
 
-API::API(GLFWwindow* surface_context, bool debug)
+API::API(const Core::Window& surface_context, bool debug)
 {
     u32 version;
     VK_ASSERT_THROW(vkEnumerateInstanceVersion(&version), "Failed to get Vulkan version");
@@ -100,8 +99,12 @@ API::API(GLFWwindow* surface_context, bool debug)
 
         VK_ASSERT_THROW(Vulkan::Extension::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger");
     }
+    else
+    {
+        m_debug_messenger = nullptr;
+    }
 
-    VK_ASSERT_THROW(glfwCreateWindowSurface(m_instance, surface_context, nullptr, &m_surface), "Failed to create Vulkan surface");
+    VK_ASSERT_THROW(glfwCreateWindowSurface(m_instance, surface_context.context, nullptr, &m_surface), "Failed to create Vulkan surface");
 
     // Physical device
 
@@ -235,8 +238,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     vkGetPhysicalDeviceFeatures(m_physical_device, &m_physical_device_features);
     vkGetPhysicalDeviceProperties(m_physical_device, &m_physical_device_properties);
 
-    CR_INFO("Suitable device:");
-    CR_INFO(m_physical_device_properties.deviceName);
+    CR_INFO("Suitable device: %s", m_physical_device_properties.deviceName);
 
     std::set<u32> unique_indices { indices.graphics, indices.presentation };
 
@@ -341,7 +343,7 @@ API::API(GLFWwindow* surface_context, bool debug)
     else
     {
         i32 width, height;
-        glfwGetFramebufferSize(surface_context, &width, &height);
+        glfwGetFramebufferSize(surface_context.context, &width, &height);
         swap_extent.width = std::clamp(static_cast<u32>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
         swap_extent.height = std::clamp(static_cast<u32>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
     }
@@ -488,60 +490,71 @@ API::API(GLFWwindow* surface_context, bool debug)
 
 API::~API()
 {
-    vkDeviceWaitIdle(m_device);
-
-    // TODO Most of this is really stupid and should be moved to pools or other lifetime management methods
-    
-    for (ImageID id = 0; id < m_image_pool.size(); ++id)
+    if (m_device)
     {
-        image_destroy(id);
+        vkDeviceWaitIdle(m_device);
+
+        // TODO Most of this is really stupid and should be moved to pools or other lifetime management methods
+        
+        for (ImageID id = 0; id < m_image_pool.size(); ++id)
+        {
+            image_destroy(id);
+        }
+
+        for (BufferID id = 0; id < m_buffer_pool.size(); ++id)
+        {
+            buffer_destroy(id);
+        }
+
+        for (auto fence : m_in_flight_fence)
+        {
+            vkDestroyFence(m_device, fence, nullptr);
+        }
+
+        for (auto semaphore : m_image_available_semaphore)
+        {
+            vkDestroySemaphore(m_device, semaphore, nullptr);
+        }
+
+        for (auto semaphore : m_render_finished_semaphore)
+        {
+            vkDestroySemaphore(m_device, semaphore, nullptr);
+        }
+
+        vkDestroyCommandPool(m_device, m_command_pool, nullptr);
+
+        for (ShaderID i = 0; i < m_shader_pool.size(); ++i)
+        {
+            shader_destroy(i);
+        }
+
+        vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
+
+        for (auto image_view : m_swap_image_views)
+        {
+            vkDestroyImageView(m_device, image_view, nullptr);
+        }
+
+        vkDestroySwapchainKHR(m_device, m_swap_chain, nullptr);
+
+        vmaDestroyAllocator(m_allocator);
+
+        vkDestroyDevice(m_device, nullptr);
     }
 
-    for (BufferID id = 0; id < m_buffer_pool.size(); ++id)
+
+    if (m_instance) 
     {
-        buffer_destroy(id);
+
+        vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+
+        if (m_debug_messenger)
+        {
+            Vulkan::Extension::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
+        }
+
+        vkDestroyInstance(m_instance, nullptr);
     }
-
-    for (auto fence : m_in_flight_fence)
-    {
-        vkDestroyFence(m_device, fence, nullptr);
-    }
-
-    for (auto semaphore : m_image_available_semaphore)
-    {
-        vkDestroySemaphore(m_device, semaphore, nullptr);
-    }
-
-    for (auto semaphore : m_render_finished_semaphore)
-    {
-        vkDestroySemaphore(m_device, semaphore, nullptr);
-    }
-
-    vkDestroyCommandPool(m_device, m_command_pool, nullptr);
-
-    for (ShaderID i = 0; i < m_shader_pool.size(); ++i)
-    {
-        shader_destroy(i);
-    }
-
-    vkDestroyDescriptorPool(m_device, m_descriptor_pool, nullptr);
-
-    for (auto image_view : m_swap_image_views)
-    {
-        vkDestroyImageView(m_device, image_view, nullptr);
-    }
-
-    vmaDestroyAllocator(m_allocator);
-
-    vkDestroySwapchainKHR(m_device, m_swap_chain, nullptr);
-
-    vkDestroyDevice(m_device, nullptr);
-
-    vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
-
-    Vulkan::Extension::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
-
-    vkDestroyInstance(m_instance, nullptr);
 }
 
 ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)

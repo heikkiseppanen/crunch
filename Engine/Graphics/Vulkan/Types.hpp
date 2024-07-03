@@ -2,7 +2,7 @@
 
 #include <array>
 
-#include <vulkan_core.h>
+#include <vulkan.h>
 
 #include "Graphics/Types.hpp"
 #include "Graphics/Vulkan/Allocator.hpp"

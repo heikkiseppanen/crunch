@@ -25,7 +25,7 @@ namespace Cr
             {
                 position += step_right;
                 uv.x     += uv_step;
-                output.emplace_back(Vertex{ position, uv });
+                output.emplace_back(position, uv);
             }
 
             position = top_right + (step_down * f32(y));
@@ -77,50 +77,12 @@ namespace Cr
         std::vector<Vertex> vertices;
         vertices.reserve(CUBE_SIDES * QUAD_VERTEX_COUNT);
 
-        generate_quad_vertices(lub, rub, ldb, edge_vertex_count, vertices); // Front
-        generate_quad_vertices(ruf, luf, rdf, edge_vertex_count, vertices); // Back
-        generate_quad_vertices(luf, lub, ldf, edge_vertex_count, vertices); // Left
-        generate_quad_vertices(rub, ruf, rdb, edge_vertex_count, vertices); // Right
-        generate_quad_vertices(ldb, rdb, ldf, edge_vertex_count, vertices); // Bottom
-        generate_quad_vertices(luf, ruf, lub, edge_vertex_count, vertices); // Top
-//        {
-//            // Front
-//            {lub, uv00},
-//            {rub, uv10},
-//            {rdb, uv11},
-//            {ldb, uv01},
-//
-//            // Back
-//            {ruf, uv00},
-//            {luf, uv10},
-//            {ldf, uv11},
-//            {rdf, uv01},
-//
-//            // Left
-//            {luf, uv00},
-//            {lub, uv10},
-//            {ldb, uv11},
-//            {ldf, uv01},
-//
-//            // Right
-//            {rub, uv00},
-//            {ruf, uv10},
-//            {rdf, uv11},
-//            {rdb, uv01},
-//
-//            // Top
-//            {luf, uv00},
-//            {ruf, uv10},
-//            {rub, uv11},
-//            {lub, uv01},
-//
-//            // Bottom
-//            {ldb, uv00},
-//            {rdb, uv10},
-//            {rdf, uv11},
-//            {ldf, uv01},
-//        };
-
+        generate_quad_vertices(luf, ruf, ldf, edge_vertex_count, vertices); // Front
+        generate_quad_vertices(rub, lub, rdb, edge_vertex_count, vertices); // Back
+        generate_quad_vertices(lub, luf, ldb, edge_vertex_count, vertices); // Left
+        generate_quad_vertices(ruf, rub, rdf, edge_vertex_count, vertices); // Right
+        generate_quad_vertices(ldf, rdf, ldb, edge_vertex_count, vertices); // Bottom
+        generate_quad_vertices(lub, rub, luf, edge_vertex_count, vertices); // Top
 
         return vertices;
     }
@@ -145,7 +107,7 @@ namespace Cr
     {
         const f32 radius = size * 0.5f;
 
-        std::vector<Vertex> vertices { get_cube_vertices(radius, subdivision) };
+        std::vector<Vertex> vertices { get_cube_vertices(size, subdivision) };
 
         for (auto& vertex : vertices)
         {

@@ -22,7 +22,7 @@ void CommandBuffer::begin_recording(VkCommandBufferUsageFlags flags)
     VkCommandBufferBeginInfo begin_info {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.pNext = nullptr;
-    begin_info.flags = flags;
+    begin_info.flags = VkCommandBufferUsageFlagBits::VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     begin_info.pInheritanceInfo = nullptr;
 
     VK_ASSERT_THROW(vkBeginCommandBuffer(m_handle, &begin_info), "Failed to begin recording command buffer");
