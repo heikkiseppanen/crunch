@@ -1,16 +1,9 @@
 #pragma once
 
-#include "Crunch.hpp"
+#include "Graphics/Vulkan/Vulkan.hpp"
+#include "Graphics/Vulkan/Buffer.hpp"
 
-#include "Graphics/Mesh.hpp"
-#include "Graphics/Types.hpp"
-
-#include "Graphics/Vulkan/Types.hpp"
-
-#include <vector>
-#include <array>
-
-namespace Cr::Core { struct Window; }
+namespace Cr::Core { class Window; }
 
 namespace Cr::Graphics::Vulkan {
 
@@ -29,84 +22,24 @@ struct QueueFamilyIndices
     u32 presentation;
 };
 
-struct PushConstantObject // 128 byte minimum support
-{
-    alignas(16) Mat4f model; // 64
-};
-
-struct UniformBufferObject
-{
-    alignas(16) Mat4f projected_view;
-};
-
-struct MeshContext
-{
-    u32 vertex_buffer_id;
-    u32 index_buffer_id;
-    u32 index_count;
-};
-
-struct TextureContext
-{
-    ImageID image_id;
-    u16 width;
-    u16 height;
-};
-
-class API
+class Driver
 {
     public:
-        API() = delete;
-        API(const Core::Window& surface_context, bool debug = true);
-        ~API();
-
-        // RENDERING API
-
-        // TODO Expose shader module creation and pipeline configuration further 
-        
-        [[nodiscard]]
-        ShaderID shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv);
-        void     shader_set_uniform(ShaderID id, const UniformBufferObject& uniforms);
-        void     shader_destroy(ShaderID shader_id);
-
-        // TODO Abstract vertex data layout
-        [[nodiscard]]
-        MeshID mesh_create(const std::vector<Vertex>& vertices, const std::vector<u32>& indices);
-        void   mesh_destroy(MeshID mesh_id);
-
-        [[nodiscard]]
-        TextureID texture_create(const std::string& path);
-        void      texture_destroy(TextureID texture_id);
-
-        // Command buffer recording?
-        void begin_render();
-        void draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& push_constants);
-        void end_render();
+        Driver() = delete;
+        Driver(const Core::Window& surface_context, bool debug = true);
+        ~Driver();
 
         // DRIVER API
 
         [[nodiscard]]
-        BufferID buffer_create(BufferType type, u64 size);
+        Vulkan::Buffer create_buffer(VkBufferUsageFlags usage, u64 size);
 
-        template<typename T>
-        void     buffer_map_range(BufferID id, const T* begin, u64 count, u64 offset)
-        {
-            const auto& buffer = m_buffer_pool[id];
-            std::copy(begin, begin + count, static_cast<T*>(buffer.data) + offset);
-        }
-
-        void buffer_flush(BufferID id);
-        void buffer_destroy(BufferID id);
-
-        void image_destroy(ImageID image_id);
+        //void image_create(ImageID image_id);
+        //void image_destroy(ImageID image_id);
 
         VkShaderModule create_shader_module(const std::vector<u8>& spirv);
 
     private:
-
-        // RENDERING COMPONENTS
-        std::vector<MeshContext> m_mesh_list;
-        std::vector<TextureContext> m_texture_list;
 
         // API COMPONENTS
         VkInstance m_instance = VK_NULL_HANDLE;

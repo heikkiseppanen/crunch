@@ -18,11 +18,14 @@ set(SOURCE
     "${ENGINE_DIR}/Core/Window.cpp"
     "${ENGINE_DIR}/Core/Input.cpp"
 
+    "${ENGINE_DIR}/Graphics/API.cpp"
     "${ENGINE_DIR}/Graphics/Mesh.cpp"
 
-    "${ENGINE_DIR}/Graphics/Vulkan/API.cpp"
+    "${ENGINE_DIR}/Graphics/Vulkan/Vulkan.cpp"
     "${ENGINE_DIR}/Graphics/Vulkan/Allocator.cpp"
-    "${ENGINE_DIR}/Graphics/Vulkan/Extension.cpp"
+    "${ENGINE_DIR}/Graphics/Vulkan/Driver.cpp"
+    "${ENGINE_DIR}/Graphics/Vulkan/Buffer.cpp"
+    "${ENGINE_DIR}/Graphics/Vulkan/Extensions.cpp"
 
     "${ENGINE_DIR}/Shared/Filesystem.cpp"
 )

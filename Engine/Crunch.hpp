@@ -1,7 +1,14 @@
 #pragma once
 
-#include <cstdint>
+#include <algorithm>
+#include <vector>
+#include <array>
+#include <format>
 #include <stdexcept>
+#include <memory>
+#include <utility>
+
+#include <cstdint>
 
 using i8 =  int8_t;
 using i16 = int16_t;
@@ -28,19 +35,20 @@ using f64 = double;
 
 #define CR_TERM_RESET   "\x1B[0m"
 
-#define CR_ASSERT_THROW(COND, MSG) do {                               \
-    if ((COND) == false) {                                            \
-        throw std::runtime_error(CR_TERM_RED MSG CR_TERM_RESET "\n"); \
-    }                                                                 \
+#define CR_ASSERT_THROW(COND, ...) do {                                                   \
+    if ((COND) == false) {                                                                \
+        throw std::runtime_error(CR_TERM_RED + std::format(__VA_ARGS__) + CR_TERM_RESET); \
+    }                                                                                     \
 } while(0)
 
-#define CR_FLOG(FD, COLOR,  ...) do { std::fputs(COLOR, FD); std::fprintf(FD, __VA_ARGS__); std::fputs(CR_TERM_RESET"\n", FD); } while(0)
+#define CR_FLOG(FD, COLOR, FORMAT, ...) do { std::fprintf(FD, COLOR FORMAT CR_TERM_RESET __VA_OPT__(,)__VA_ARGS__); } while(0)
 
-#define CR_INFO(...)   CR_FLOG(stdout, CR_TERM_DEFAULT, __VA_ARGS__)
-#define CR_WARN(...)   CR_FLOG(stderr, CR_TERM_YELLOW,  __VA_ARGS__)
-#define CR_ERROR(...)  CR_FLOG(stderr, CR_TERM_RED,     __VA_ARGS__)
+#define CR_INFO(FORMAT,  ...) CR_FLOG(stdout, CR_TERM_DEFAULT, FORMAT, __VA_ARGS__)
+#define CR_WARN(FORMAT,  ...) CR_FLOG(stderr, CR_TERM_YELLOW,  FORMAT, __VA_ARGS__)
+#define CR_ERROR(FORMAT, ...) CR_FLOG(stderr, CR_TERM_RED,     FORMAT, __VA_ARGS__)
 
-#define CR_ARRAY_SIZE(arr) (sizeof(arr) / sizeof(*arr))
+namespace Cr
+{
 
 template<typename F>
 class Defer
@@ -59,3 +67,12 @@ class Defer
     private:
         const F m_function;
 };
+
+template<typename T, typename D = std::default_delete<T>>
+using Unique = std::unique_ptr<T, D>;
+
+template<typename T, typename... Args>
+Unique<T> create_unique(Args&& ... arguments) { return std::make_unique<T>(std::forward(arguments...)); }
+
+} // namespace Cr
+

@@ -6,14 +6,14 @@
 namespace Cr::Core
 {
 
-Input::Input(const Window::Context& context) : m_context(context)
+Input::Input(const Window::Context& context) : context(context)
 {
     if (glfwRawMouseMotionSupported())
     {
-        glfwSetInputMode(this->m_context, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        glfwSetInputMode(this->context, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     }
 
-    glfwSetInputMode(m_context, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(this->context, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
 
 } // namespace Cr::System

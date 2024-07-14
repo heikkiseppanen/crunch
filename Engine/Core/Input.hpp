@@ -136,17 +136,16 @@ namespace Cr
     class Input : public NoValueSemantics
     {
         public:
-
             Input() = delete;
             Input(const Core::Window::Context& context);
 
-            inline bool isKeyDown(Key key)     const noexcept { return glfwGetKey(m_context, static_cast<int>(key)) == GLFW_PRESS;   }
-            inline bool isKeyReleased(Key key) const noexcept { return glfwGetKey(m_context, static_cast<int>(key)) == GLFW_RELEASE; }
+            inline bool isKeyDown(Key key)     const noexcept { return glfwGetKey(this->context, static_cast<int>(key)) == GLFW_PRESS;   }
+            inline bool isKeyReleased(Key key) const noexcept { return glfwGetKey(this->context, static_cast<int>(key)) == GLFW_RELEASE; }
 
-            inline Vec2f getMousePosition() const noexcept { double x,y; glfwGetCursorPos(m_context, &x, &y); return { x,y }; }
+            inline Vec2f getMousePosition() const noexcept { double x,y; glfwGetCursorPos(this->context, &x, &y); return { x,y }; }
 
         private:
-            Window::Context m_context;
+            Window::Context context;
     };
 
     } // namespace System

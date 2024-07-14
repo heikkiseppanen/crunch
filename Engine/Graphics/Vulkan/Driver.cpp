@@ -1,10 +1,10 @@
-#include "Graphics/Vulkan/API.hpp"
-#include "Graphics/Vulkan/Extension.hpp"
-#include "Graphics/Vulkan/Debug.hpp"
+#include "Graphics/Vulkan/Driver.hpp"
+
+#include "Graphics/Vulkan/Extensions.hpp"
 
 #include "Core/Window.hpp"
 
-#include <ktx.h>
+#include <vulkan.hpp>
 
 #include <cstring>
 #include <iostream>
@@ -17,7 +17,7 @@
 namespace Cr::Graphics::Vulkan
 {
 
-API::API(const Core::Window& surface_context, bool debug)
+Driver::Driver(const Core::Window& surface_context, bool debug)
 {
     u32 version;
     VK_ASSERT_THROW(vkEnumerateInstanceVersion(&version), "Failed to get Vulkan version");
@@ -36,18 +36,14 @@ API::API(const Core::Window& surface_context, bool debug)
         
         validation_layers.push_back("VK_LAYER_KHRONOS_validation");
 
-        u32 available_layer_count;
-        VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, nullptr), "Failed to get VkLayerProperties");
-
-        std::vector<VkLayerProperties> available_layers(available_layer_count);
-        VK_ASSERT_THROW(vkEnumerateInstanceLayerProperties(&available_layer_count, available_layers.data()), "Failed to get VkLayerProperties");
+        auto layer_properties = get_instance_layer_properties();
 
         for (auto it = validation_layers.begin(); it != validation_layers.end(); ++it)
         {
             bool is_invalid_layer = true;
-            for (const auto& layer : available_layers)
+            for (const auto& property : layer_properties)
             {
-                if (strcmp(*it, layer.layerName) == 0)
+                if (strcmp(*it, property.layerName) == 0)
                 {
                     is_invalid_layer = false;
                     break;
@@ -79,8 +75,7 @@ API::API(const Core::Window& surface_context, bool debug)
 
     VK_ASSERT_THROW(vkCreateInstance(&instance_info, nullptr, &m_instance), "Failed to create a Vulkan instance");
 
-    // Need to do device extension stuff separately?
-    VK_ASSERT_THROW(Vulkan::Extension::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls");
+    VK_ASSERT_THROW(Extensions::bind_instance_extension_functions(m_instance), "Failed to bind extensions function calls");
 
     if (debug == true)
     {
@@ -94,10 +89,10 @@ API::API(const Core::Window& surface_context, bool debug)
         debug_messenger_info.messageType     = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT    |
                                                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
                                                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-        debug_messenger_info.pfnUserCallback = API::debug_callback;
+        debug_messenger_info.pfnUserCallback = Driver::debug_callback;
         debug_messenger_info.pUserData       = nullptr;
 
-        VK_ASSERT_THROW(Vulkan::Extension::CreateDebugUtilsMessengerEXT(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger");
+        VK_ASSERT_THROW(Extensions::create_debug_utils_messenger(m_instance, &debug_messenger_info, nullptr, &m_debug_messenger), "Failed to create a debug messenger");
     }
     else
     {
@@ -108,25 +103,13 @@ API::API(const Core::Window& surface_context, bool debug)
 
     // Physical device
 
-    // TODO should be figured out more dynamically later on
-    std::vector<const char*> device_extensions
-    {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-        VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-    };
 
     // Should maybe pack these and other useful information some GPU info structure
     QueueFamilyIndices indices{};
     SwapChainSupportDetails swap_chain_details{};
 
-    u32 device_count;
-    VK_ASSERT_THROW(vkEnumeratePhysicalDevices(m_instance, &device_count, nullptr), "Failed to get fetch devices");
-
-    std::vector<VkPhysicalDevice> device_list{device_count};
-    VK_ASSERT_THROW(vkEnumeratePhysicalDevices(m_instance, &device_count, device_list.data()), "Failed to get fetch devices");
-
     m_physical_device = nullptr;
-    for (auto& device : device_list)
+    for (auto device : get_physical_devices(m_instance))
     {
         // Confirm properties and features
 
@@ -148,47 +131,39 @@ API::API(const Core::Window& surface_context, bool debug)
         std::optional<u32> graphics;
         std::optional<u32> presentation;
         
-        u32 family_count;
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, nullptr);
-
-        std::vector<VkQueueFamilyProperties> family_properties(family_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(device, &family_count, family_properties.data());
-
-        for (std::size_t i = 0; i < family_properties.size(); ++i)
+        u32 family_index = 0;
+        for (const auto& property : get_physical_device_queue_properties(device))
         {
             VkBool32 supports_presentation = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &supports_presentation);
+            vkGetPhysicalDeviceSurfaceSupportKHR(device, family_index, m_surface, &supports_presentation);
 
             if (!presentation.has_value() && supports_presentation)
             {
-                presentation = i;
+                presentation = family_index;
             }
-            if (!graphics.has_value() && (family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
+            if (!graphics.has_value() && (property.queueFlags & VK_QUEUE_GRAPHICS_BIT))
             {
-                graphics = i;
+                graphics = family_index;
             }
             if (graphics.has_value() && presentation.has_value())
             {
                 break;
             }
+
+            ++family_index;
         }
 
-        if (!graphics.has_value() || !presentation.has_value())
-            continue;
+        if (!graphics.has_value() || !presentation.has_value()) { continue; }
 
         indices.graphics = graphics.value();
         indices.presentation = presentation.value();
 
         // Confirm extension support
 
-        u32 extension_count;
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
-
-        std::vector<VkExtensionProperties> extension_properties{extension_count};
-        vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, extension_properties.data());
+        auto extension_properties = get_physical_device_extension_properties(device);
 
         u32 extensions_found = 0;
-        for (const char* extension : device_extensions)
+        for (const char* extension : Extensions::DEVICE_EXTENSION_LIST)
         {
             for (const auto& property : extension_properties)
             {
@@ -200,10 +175,7 @@ API::API(const Core::Window& surface_context, bool debug)
             }
         }
 
-        if (extensions_found != device_extensions.size())
-        {
-            continue;
-        }
+        if (extensions_found != Extensions::DEVICE_EXTENSION_LIST.size()) { continue; }
 
         // Confirm Swap chain support
         VK_ASSERT_THROW(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &swap_chain_details.capabilities), "Failed to fetch physical device surface capabilities");
@@ -226,10 +198,8 @@ API::API(const Core::Window& surface_context, bool debug)
             VK_ASSERT_THROW(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &present_mode_count, swap_chain_details.present_modes.data()), "Failed to get physical device surface present_modes");
         }
 
-        if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty())
-        {
-            continue;
-        }
+        if (swap_chain_details.formats.empty() || swap_chain_details.present_modes.empty()) { continue; }
+
         m_physical_device = device;
     }
     
@@ -267,8 +237,8 @@ API::API(const Core::Window& surface_context, bool debug)
     logical_device_info.sType                   = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     logical_device_info.pQueueCreateInfos       = queue_info_list.data();
     logical_device_info.queueCreateInfoCount    = static_cast<u32>(queue_info_list.size());
-    logical_device_info.ppEnabledExtensionNames = device_extensions.data();
-    logical_device_info.enabledExtensionCount   = static_cast<u32>(device_extensions.size());
+    logical_device_info.ppEnabledExtensionNames = Extensions::DEVICE_EXTENSION_LIST.data();
+    logical_device_info.enabledExtensionCount   = static_cast<u32>(Extensions::DEVICE_EXTENSION_LIST.size());
     logical_device_info.pEnabledFeatures        = &m_physical_device_features;
     logical_device_info.pNext                   = &dynamic_rendering_feature;
 
@@ -280,29 +250,13 @@ API::API(const Core::Window& surface_context, bool debug)
 
     VK_ASSERT_THROW(vkCreateDevice(m_physical_device, &logical_device_info, nullptr, &m_device), "Failed to create logical device");
 
-    (void)Extension::bind_device_extension_functions(m_device);
+    (void)Extensions::bind_device_extension_functions(m_device);
 
     vkGetDeviceQueue(m_device, indices.graphics, 0, &m_graphics_queue);
     vkGetDeviceQueue(m_device, indices.presentation, 0, &m_presentation_queue);
 
     // Create Vulkan Memory Allocator
 
-    VmaAllocatorCreateInfo allocator_info
-    {
-        .flags = 0,
-        .physicalDevice = m_physical_device,
-        .device = m_device,
-        .preferredLargeHeapBlockSize = 0,
-        .pAllocationCallbacks = nullptr,
-        .pDeviceMemoryCallbacks = nullptr,
-        .pHeapSizeLimit = nullptr,
-        .pVulkanFunctions = nullptr,
-        .instance = m_instance,
-        .vulkanApiVersion = 0,
-        .pTypeExternalMemoryHandleTypes = nullptr,
-    };
-
-    VK_ASSERT_THROW(vmaCreateAllocator(&allocator_info, &m_allocator), "Failed to initialize VulkanMemoryAllocator");
 
     // Select swap chain format
 
@@ -344,7 +298,7 @@ API::API(const Core::Window& surface_context, bool debug)
     {
         i32 width, height;
         glfwGetFramebufferSize(surface_context.context, &width, &height);
-        swap_extent.width = std::clamp(static_cast<u32>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        swap_extent.width  = std::clamp(static_cast<u32>(width), capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
         swap_extent.height = std::clamp(static_cast<u32>(height), capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
     }
 
@@ -488,7 +442,7 @@ API::API(const Core::Window& surface_context, bool debug)
     CR_INFO("Vulkan initialized");
 }
 
-API::~API()
+Driver::~Driver()
 {
     if (m_device)
     {
@@ -550,14 +504,14 @@ API::~API()
 
         if (m_debug_messenger)
         {
-            Vulkan::Extension::DestroyDebugUtilsMessengerEXT(m_instance, m_debug_messenger, nullptr);
+            Extensions::destroy_debug_utils_messenger(m_instance, m_debug_messenger, nullptr);
         }
 
         vkDestroyInstance(m_instance, nullptr);
     }
 }
 
-ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)
+ShaderID Driver::shader_create(const std::vector<u8>& vertex_spirv, const std::vector<u8>& fragment_spirv)
 {
     VkShaderModule vert_module = create_shader_module(vertex_spirv);
     VkShaderModule frag_module = create_shader_module(fragment_spirv);
@@ -826,14 +780,14 @@ ShaderID API::shader_create(const std::vector<u8>& vertex_spirv, const std::vect
     return m_shader_pool.size() - 1;
 }
 
-void API::shader_set_uniform(ShaderID id, const UniformBufferObject& uniforms)
+void Driver::shader_set_uniform(ShaderID id, const UniformBufferObject& uniforms)
 {
     auto uniform_buffer_id = m_shader_pool[id].uniform_buffer_list[m_current_frame];
 
     this->buffer_map_range(uniform_buffer_id, &uniforms, 1, 0);
 }
 
-void API::shader_destroy(ShaderID shader_id)
+void Driver::shader_destroy(ShaderID shader_id)
 {
     auto& pipeline = m_shader_pool[shader_id];
 
@@ -850,266 +804,7 @@ void API::shader_destroy(ShaderID shader_id)
     pipeline = {};
 }
 
-MeshID API::mesh_create(const std::vector<Vertex>& vertices, const std::vector<u32>& indices)
-{
-    // TODO Shouldn't create buffers per mesh, but lets do for now!
-
-    const u64 vertex_buffer_size = sizeof(vertices[0]) * vertices.size();
-    const u64 index_buffer_size  = sizeof(indices[0]) * indices.size();
-
-    MeshContext mesh {
-        .vertex_buffer_id = this->buffer_create(Graphics::BufferType::VERTEX, vertex_buffer_size),
-        .index_buffer_id  = this->buffer_create(Graphics::BufferType::INDEX, index_buffer_size),
-        .index_count      = static_cast<u32>(indices.size()),
-    };
-
-    this->buffer_map_range(mesh.vertex_buffer_id, vertices.data(), vertices.size(), 0);
-    this->buffer_map_range(mesh.index_buffer_id, indices.data(), indices.size(), 0);
-
-    this->buffer_flush(mesh.vertex_buffer_id);
-    this->buffer_flush(mesh.index_buffer_id);
-
-    m_mesh_list.emplace_back(mesh);
-
-    return m_mesh_list.size() - 1;
-}
-
-void API::mesh_destroy(MeshID mesh_id)
-{
-    // NOTE Should rather just free up the context from within the buffer... am I going to end up writing my own vk buffer allocator at some point?
-    auto& mesh = m_mesh_list[mesh_id];
-
-    this->buffer_destroy(mesh.vertex_buffer_id);
-    this->buffer_destroy(mesh.index_buffer_id);
-
-    // TODO Meshes don't have any sort of an invalidated state to work with, should be resolved by the ownership pool implementation honestly
-}
-
-u32 API::texture_create(const std::string& path)
-{
-    TextureContext texture = {};
-
-    // TODO Move ktx import elsewhere
-    ktxTexture2* ktx_handle;
-
-    CR_ASSERT_THROW(ktxTexture2_CreateFromNamedFile(path.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &ktx_handle) == KTX_SUCCESS, "Failed to load ktx image");
-    const Defer ktx_cleanup = [ktx_handle]{ ktxTexture_Destroy(ktxTexture(ktx_handle)); };
-
-    const ktx_uint8_t* image_data = ktxTexture_GetData(ktxTexture(ktx_handle));
-    const ktx_size_t   image_size = ktxTexture_GetDataSize(ktxTexture(ktx_handle));
-
-    // Should we just have one of these statically?
-    const BufferID staging_buffer_id = buffer_create(BufferType::STAGING, image_size);
-    const Defer staging_buffer_cleanup = [this, staging_buffer_id] { this->buffer_destroy(staging_buffer_id); };
-
-    const auto& staging_buffer = m_buffer_pool[staging_buffer_id];
-    std::copy(image_data, image_data + image_size, static_cast<ktx_uint8_t*>(staging_buffer.data));
-
-    vmaFlushAllocation(m_allocator, staging_buffer.allocation, 0, VK_WHOLE_SIZE);
-
-    // NOTE This could work well as a builder pattern?
-    VkImageCreateInfo image_info{};
-    image_info.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    image_info.pNext         = nullptr;
-    image_info.flags         = 0;
-    image_info.imageType     = VK_IMAGE_TYPE_2D;
-    image_info.format        = static_cast<VkFormat>(ktx_handle->vkFormat);
-    image_info.extent.width  = ktx_handle->baseWidth;
-    image_info.extent.height = ktx_handle->baseHeight;
-    image_info.extent.depth  = 1;
-    image_info.mipLevels     = ktx_handle->numLevels;
-    image_info.arrayLayers   = ktx_handle->numLayers;
-    image_info.samples       = VK_SAMPLE_COUNT_1_BIT;
-    image_info.tiling        = VK_IMAGE_TILING_OPTIMAL;
-    image_info.usage         = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    image_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-//    image_info.queueFamilyIndexCount;
-//    image_info.pQueueFamilyIndices;
-    image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    VmaAllocationCreateInfo allocation_info {};
-    allocation_info.usage    = VMA_MEMORY_USAGE_AUTO;
-    
-    Image image;
-
-    VK_ASSERT_THROW(vmaCreateImage(m_allocator, &image_info, &allocation_info, &image.handle, &image.allocation, nullptr), "Failed to create texture image");
-
-    texture.image_id = static_cast<decltype(texture.image_id)>(m_image_pool.size() - 1); // Overflow possibility, but unlikely
-
-    // TODO: Command buffer abstraction
-    // NOTE: Shouldn't have to create these for every single texture created
-    //       but rather manage uploading multiple at once on renderer level
-
-    VkCommandBuffer command_buffer;
-    VkCommandBufferAllocateInfo command_buffer_info {};
-    command_buffer_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    command_buffer_info.pNext              = nullptr;
-    command_buffer_info.level              = VK_COMMAND_BUFFER_LEVEL_PRIMARY; // Submit to queue, cannot be called from other buffers
-    command_buffer_info.commandPool        = m_command_pool;
-    command_buffer_info.commandBufferCount = 1;
-
-    VK_ASSERT_THROW(vkAllocateCommandBuffers(m_device, &command_buffer_info, &command_buffer), "Failed to allocate command buffer");
-
-    const Defer command_buffer_cleanup = [this, command_buffer]{
-        vkFreeCommandBuffers(m_device, m_command_pool, 1, &command_buffer);
-    };
-
-    VkCommandBufferBeginInfo begin_info {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    VK_ASSERT_THROW(vkBeginCommandBuffer(command_buffer, &begin_info), "Failure to begin image upload command buffer");
-
-    { 
-        VkImageMemoryBarrier image_memory_barrier
-        {
-            .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext               = nullptr,
-            .srcAccessMask       = VK_ACCESS_NONE,                       // Wait for these accesses...
-            .dstAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT,         // ...and before these ones... 
-            .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,            // ...change layout...
-            .newLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, // ...to this!
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image               = image.handle,
-            .subresourceRange
-            {
-                .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel    = 0,
-                .levelCount      = ktx_handle->numLevels,
-                .baseArrayLayer  = 0,
-                .layerCount      = ktx_handle->numLayers,
-            },
-        };
-        vkCmdPipelineBarrier(
-            command_buffer, 
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier
-        );
-    }
-
-    VkBufferImageCopy region_info {}; 
-    region_info.bufferOffset = 0;
-    region_info.bufferRowLength = 0;
-    region_info.bufferImageHeight = 0;
-
-    region_info.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region_info.imageSubresource.mipLevel = 0;
-    region_info.imageSubresource.baseArrayLayer = 0;
-    region_info.imageSubresource.layerCount = 1;
-
-    region_info.imageOffset = {0,0,0};
-    region_info.imageExtent = image_info.extent;
-
-    vkCmdCopyBufferToImage(command_buffer, staging_buffer.handle, image.handle, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region_info);
-            
-    { 
-        VkImageMemoryBarrier image_memory_barrier
-        {
-            .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-            .pNext               = nullptr,
-            .srcAccessMask       = VK_ACCESS_TRANSFER_WRITE_BIT, 
-            .dstAccessMask       = VK_ACCESS_SHADER_READ_BIT,
-            .oldLayout           = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .newLayout           = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-            .image               = image.handle,
-            .subresourceRange
-            {
-                .aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT,
-                .baseMipLevel    = 0,
-                .levelCount      = ktx_handle->numLevels,
-                .baseArrayLayer  = 0,
-                .layerCount      = ktx_handle->numLayers,
-            },
-        };
-        vkCmdPipelineBarrier(command_buffer,
-            VK_PIPELINE_STAGE_TRANSFER_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0, 0, nullptr, 0, nullptr, 1, &image_memory_barrier
-        );
-    }
-
-    vkEndCommandBuffer(command_buffer);
-
-    VkSubmitInfo submit_info{};
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submit_info.pCommandBuffers = &command_buffer;
-    submit_info.commandBufferCount = 1;
-
-    VK_ASSERT_THROW(vkQueueSubmit(m_graphics_queue, 1, &submit_info, VK_NULL_HANDLE), "Failed to submit command buffer");
-    VK_ASSERT_THROW(vkQueueWaitIdle(m_graphics_queue), "Failure to wait for queue after image upload submission");
-
-    VkImageViewCreateInfo view_info {};
-    view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    view_info.pNext = VK_NULL_HANDLE;
-    view_info.flags = 0;
-    view_info.image = image.handle;
-    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    view_info.format = static_cast<VkFormat>(ktx_handle->vkFormat);
-    view_info.components = {}; // Default rgb
-    view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    view_info.subresourceRange.baseMipLevel = 0;
-    view_info.subresourceRange.levelCount = ktx_handle->numLevels;
-    view_info.subresourceRange.baseArrayLayer = 0;
-    view_info.subresourceRange.layerCount = ktx_handle->numLayers;
-
-    // Store into image for now... 
-    VK_ASSERT_THROW(vkCreateImageView(m_device, &view_info, nullptr, &image.view), "Failed to create image view for texture");
-
-    VkSamplerCreateInfo sampler_info {};
-    sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler_info.pNext = nullptr;
-    sampler_info.flags = 0;
-    sampler_info.magFilter = VkFilter::VK_FILTER_LINEAR;
-    sampler_info.minFilter = VkFilter::VK_FILTER_LINEAR;
-    sampler_info.addressModeU = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_info.addressModeV = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_info.addressModeW = VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    sampler_info.mipmapMode = VkSamplerMipmapMode::VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler_info.mipLodBias = 0.0f;
-    sampler_info.anisotropyEnable = VK_TRUE; 
-    sampler_info.maxAnisotropy = m_physical_device_properties.limits.maxSamplerAnisotropy;
-    sampler_info.compareEnable = VK_FALSE;
-    sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-    sampler_info.minLod = 0.0f;
-    sampler_info.maxLod = 0.0f;
-    sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    sampler_info.unnormalizedCoordinates = VK_FALSE;
-
-    VK_ASSERT_THROW(vkCreateSampler(m_device, &sampler_info, nullptr, &image.sampler), "Failed to create image sampler for texture");
-
-    m_image_pool.emplace_back(image);
-    m_texture_list.emplace_back(texture);
-
-    return static_cast<TextureID>(m_texture_list.size() - 1); // Overflow danger
-}
-
-void API::texture_destroy(TextureID texture_id)
-{
-    TextureContext& texture = m_texture_list[texture_id];
-
-    this->image_destroy(texture.image_id);
-
-    // No invalidation state, should be done in ownership pool
-}
-
-void API::image_destroy(ImageID image_id)
-{
-    Image& image = m_image_pool[image_id];
-
-    if (!image.handle) return; //
-
-    vkDestroySampler(m_device, image.sampler, nullptr);
-    vkDestroyImageView(m_device, image.view, nullptr);
-    vmaDestroyImage(m_allocator, image.handle, image.allocation);
-
-    image = {};
-}
-
-void API::begin_render()
+void Driver::begin_render()
 {
     VkFence fence = m_in_flight_fence[m_current_frame];
 
@@ -1190,10 +885,10 @@ void API::begin_render()
 
     vkCmdSetScissor(command_buffer, 0, 1, &scissor);
 
-    Vulkan::Extension::CmdBeginRenderingKHR(command_buffer, &render_info);
+    Extensions::cmd_begin_rendering(command_buffer, &render_info);
 }
 
-void API::draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& push_constants)
+void Driver::draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& push_constants)
 {
     const VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
@@ -1220,7 +915,7 @@ void API::draw(MeshID mesh_id, ShaderID shader_id, const PushConstantObject& pus
     vkCmdDrawIndexed(command_buffer, mesh_context.index_count, 1, 0, 0, 0);
 }
 
-void API::end_render()
+void Driver::end_render()
 {
     VkFence fence = m_in_flight_fence[m_current_frame];
 
@@ -1229,7 +924,7 @@ void API::end_render()
 
     VkCommandBuffer command_buffer = m_command_buffer[m_current_frame];
 
-    Extension::CmdEndRenderingKHR(command_buffer);
+    Extensions::cmd_end_rendering(command_buffer);
 
     VkImageMemoryBarrier image_memory_barrier
     {
@@ -1293,7 +988,7 @@ void API::end_render()
         m_current_frame = 0;
 }
 
-VkShaderModule API::create_shader_module(const std::vector<u8>& spirv)
+VkShaderModule Driver::create_shader_module(const std::vector<u8>& spirv)
 {
     VkShaderModuleCreateInfo shader_module_info{};
     shader_module_info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -1306,42 +1001,8 @@ VkShaderModule API::create_shader_module(const std::vector<u8>& spirv)
     return shader_module;
 };
 
-BufferID API::buffer_create(Graphics::BufferType type, u64 size)
+Buffer Driver::buffer_create()
 {
-    VkBufferCreateInfo buffer_info {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    buffer_info.size = size;
-
-    switch (type)
-    {
-        case Graphics::BufferType::VERTEX:
-        {
-            buffer_info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
-        }
-        case Graphics::BufferType::INDEX:
-        {
-            buffer_info.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT; break;
-        }
-        case Graphics::BufferType::UNIFORM:
-        {
-            buffer_info.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT; break;
-        }
-        case Graphics::BufferType::STAGING:
-        {
-            buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT; break;
-        }
-    };
-
-    VmaAllocationCreateInfo allocation_info {};
-    allocation_info.usage = VMA_MEMORY_USAGE_AUTO;
-    allocation_info.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    Buffer buffer;
-    VmaAllocationInfo allocation_details;
-
-    VK_ASSERT_THROW(vmaCreateBuffer(m_allocator, &buffer_info, &allocation_info, &buffer.handle, &buffer.allocation, &allocation_details), "Failed to create buffer");
-
     buffer.data = allocation_details.pMappedData;
 
     m_buffer_pool.emplace_back(buffer); // TODO Buffer isn't exception safe
@@ -1349,14 +1010,14 @@ BufferID API::buffer_create(Graphics::BufferType type, u64 size)
     return static_cast<BufferID>(m_buffer_pool.size() - 1); // Overflowing u32 unlikely
 }
 
-void API::buffer_flush(BufferID id)
+void Driver::buffer_flush(BufferID id)
 {
     auto& buffer = m_buffer_pool[id];
 
     VK_ASSERT_THROW(vmaFlushAllocation(m_allocator, buffer.allocation,  0, VK_WHOLE_SIZE), "Failed to flush buffer allocation");
 }
 
-void API::buffer_destroy(BufferID id)
+void Driver::buffer_destroy(BufferID id)
 {
     auto& buffer = m_buffer_pool[id];
 
@@ -1368,7 +1029,21 @@ void API::buffer_destroy(BufferID id)
     buffer = {};
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL API::debug_callback(
+void Driver::image_destroy(ImageID image_id)
+{
+    Image& image = m_image_pool[image_id];
+
+    if (!image.handle) return; //
+
+    vkDestroySampler(m_device, image.sampler, nullptr);
+    vkDestroyImageView(m_device, image.view, nullptr);
+    vmaDestroyImage(m_allocator, image.handle, image.allocation);
+
+    image = {};
+}
+
+
+VKAPI_ATTR VkBool32 VKAPI_CALL Driver::debug_callback(
     VkDebugUtilsMessageSeverityFlagBitsEXT severity,
     VkDebugUtilsMessageTypeFlagsEXT type,
     const VkDebugUtilsMessengerCallbackDataEXT* p_callback_data,

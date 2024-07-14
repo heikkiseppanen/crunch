@@ -7,7 +7,8 @@
 #include "Shared/Math.hpp"
 #include <glm/gtx/rotate_vector.hpp>
 
-#include "Graphics/Vulkan/API.hpp"
+#include "Graphics/API.hpp"
+
 #include "Shared/Filesystem.hpp"
 
 #include <iostream>
@@ -29,25 +30,25 @@ int main(int argc, char *argv[])
         Cr::Core::Window window { WINDOW_WIDTH, WINDOW_HEIGHT, "Crunch" };
         Cr::Core::Input  input  { window.context };
 
-        Cr::Graphics::Vulkan::API vk{ window };
+        Cr::Graphics::API graphics { window };
 
         // Temporary assets
 
-        const auto texture_id = vk.texture_create("Assets/Textures/T_CrunchLogo_D.ktx2"); // TODO: manual texture binding and other shenanigans going on with this and the shader
+        const auto texture_id = graphics.texture_create("Assets/Textures/T_CrunchLogo_D.ktx2"); // TODO: manual texture binding and other shenanigans going on with this and the shader
         (void)texture_id;
 
-        const Cr::Graphics::ShaderID shader_id = vk.shader_create(
+        const Cr::Graphics::ShaderID shader_id = graphics.shader_create(
             Cr::read_binary_file("Assets/Shaders/triangle.vert.spv"),
             Cr::read_binary_file("Assets/Shaders/triangle.frag.spv")
         );
 
-        auto cube_mesh   = vk.mesh_create
+        auto cube_mesh   = graphics.mesh_create
         (
             Cr::get_cube_vertices(1.0f, 0),
             Cr::get_cube_indices(0) 
         );
 
-        auto sphere_mesh = vk.mesh_create
+        auto sphere_mesh = graphics.mesh_create
         (
             Cr::get_quad_sphere_vertices(1.0f, 3),
             Cr::get_quad_sphere_indices(3) 
@@ -114,36 +115,36 @@ int main(int argc, char *argv[])
             camera_right   = glm::normalize(glm::cross(-camera_forward, Cr::VEC3F_UP));
             camera_up      = glm::normalize(glm::cross(camera_forward, camera_right));
 
-            std::cout << camera_forward.x << ' ' << camera_forward.y << ' ' << camera_forward.z << '\n';
-            std::cout << camera_right.x << ' ' << camera_right.y << ' ' << camera_right.z << '\n';
-            std::cout << camera_up.x << ' ' << camera_up.y << ' ' << camera_up.z << '\n' << '\n';
+            // std::cout << camera_forward.x << ' ' << camera_forward.y << ' ' << camera_forward.z << '\n';
+            // std::cout << camera_right.x << ' ' << camera_right.y << ' ' << camera_right.z << '\n';
+            // std::cout << camera_up.x << ' ' << camera_up.y << ' ' << camera_up.z << '\n' << '\n';
 
             const Cr::Mat4f perspective_matrix = glm::perspective(glm::radians(FOV), ASPECT_RATIO, 0.1f, 100.0f);
             const Cr::Mat4f view_matrix = glm::lookAt(camera_position, camera_position - camera_forward, camera_up);
             
-            Cr::Graphics::Vulkan::UniformBufferObject frame_data
+            Cr::Graphics::UniformBufferObject frame_data
             {
                 .projected_view = perspective_matrix * view_matrix
             };
 
-            vk.shader_set_uniform(shader_id, frame_data);
+            graphics.shader_set_uniform(shader_id, frame_data);
 
-            vk.begin_render();
+            graphics.begin_render();
 
             const f32 rotation_velocity = 50.0f * time_delta;
 
             //cube_matrix   = glm::rotate(cube_matrix,   glm::radians( rotation_velocity), Cr::VEC3F_UP);
             sphere_matrix = glm::rotate(sphere_matrix, glm::radians(-rotation_velocity), Cr::VEC3F_UP);
 
-            Cr::Graphics::Vulkan::PushConstantObject instance_data;
+            Cr::Graphics::PushConstantObject instance_data;
 
             instance_data.model = cube_matrix;
-            vk.draw(cube_mesh, shader_id, instance_data);
+            graphics.draw(cube_mesh, shader_id, instance_data);
 
             instance_data.model = sphere_matrix;
-            vk.draw(sphere_mesh, shader_id, instance_data);
+            graphics.draw(sphere_mesh, shader_id, instance_data);
 
-            vk.end_render();
+            graphics.end_render();
         }
     }
     catch (std::exception& e)
