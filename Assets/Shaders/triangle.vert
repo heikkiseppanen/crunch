@@ -1,14 +1,14 @@
 #version 450
 
-layout(push_constant) uniform InstanceData
-{
-    mat4 model;
-} instance;
-
 layout(binding = 0) uniform FrameData
 {
     mat4 projected_view;
 } frame;
+
+layout(push_constant) uniform InstanceData
+{
+    mat4 model;
+} instance;
 
 layout(location = 0) in vec3 local_position_in;
 layout(location = 1) in vec2 uv_in;

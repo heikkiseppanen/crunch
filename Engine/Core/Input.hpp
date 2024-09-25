@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Shared/ClassUtility.hpp"
-#include "Shared/Math.hpp"
+#include "Crunch/ClassUtility.hpp"
+#include "Crunch/Math.hpp"
 
 #include "Core/Window.hpp"
 
@@ -131,24 +131,22 @@ namespace Cr
         MENU = GLFW_KEY_MENU,
     };
 
-    namespace Core {
-
-    class Input : public NoValueSemantics
+    namespace Core
     {
-        public:
-            Input() = delete;
-            Input(const Core::Window::Context& context);
+        class Input : public NoCopy
+        {
+            public:
+                Input() = delete;
+                Input(GLFWwindow* context);
 
-            inline bool isKeyDown(Key key)     const noexcept { return glfwGetKey(this->context, static_cast<int>(key)) == GLFW_PRESS;   }
-            inline bool isKeyReleased(Key key) const noexcept { return glfwGetKey(this->context, static_cast<int>(key)) == GLFW_RELEASE; }
+                inline bool is_key_down    (Key key) const noexcept { return glfwGetKey(m_context, static_cast<I32>(key)) == GLFW_PRESS;   }
+                inline bool is_key_released(Key key) const noexcept { return glfwGetKey(m_context, static_cast<I32>(key)) == GLFW_RELEASE; }
 
-            inline Vec2f getMousePosition() const noexcept { double x,y; glfwGetCursorPos(this->context, &x, &y); return { x,y }; }
+                inline Vec2f get_mouse_position() const noexcept { F64 x,y; glfwGetCursorPos(m_context, &x, &y); return { x,y }; }
 
-        private:
-            Window::Context context;
-    };
-
-    } // namespace System
-
+            private:
+                GLFWwindow* m_context;
+        };
+    } // namespace Cr::Core
 } // namespace Cr
 

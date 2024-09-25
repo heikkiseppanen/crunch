@@ -1,8 +1,6 @@
 #pragma once
 
-#include <vulkan.h>
-
-#include <array>
+#include "Graphics/Vulkan/Vulkan.hpp"
 
 namespace Cr::Graphics::Vulkan::Extensions
 {    

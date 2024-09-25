@@ -4,7 +4,6 @@
 
 #include <cmath>
 
-//#define GLM_FORCE_LEFT_HANDED
 #define GLM_FORCE_DEPTH_ONE_TO_ZERO
 #define GLM_FORCE_RADIANS
 
@@ -23,12 +22,12 @@
 
 namespace Cr
 {
-    using Vec2f = glm::vec<2, f32, glm::defaultp>;
-    using Vec3f = glm::vec<3, f32, glm::defaultp>;
-    using Vec4f = glm::vec<4, f32, glm::defaultp>;
+    using Vec2f = glm::vec<2, F32, glm::defaultp>;
+    using Vec3f = glm::vec<3, F32, glm::defaultp>;
+    using Vec4f = glm::vec<4, F32, glm::defaultp>;
 
-    using Mat3f = glm::mat<3, 3, f32, glm::defaultp>;
-    using Mat4f = glm::mat<4, 4, f32, glm::defaultp>;
+    using Mat3f = glm::mat<3, 3, F32, glm::defaultp>;
+    using Mat4f = glm::mat<4, 4, F32, glm::defaultp>;
 
     using Quatf = glm::quat;
 
@@ -46,5 +45,5 @@ namespace Cr
 
     constexpr Mat3f MAT3F_ID {1.0f};
 
-    constexpr f32 PI = glm::pi<f32>();
+    constexpr F32 PI = glm::pi<F32>();
 }

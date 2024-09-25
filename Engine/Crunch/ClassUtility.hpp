@@ -4,8 +4,8 @@ namespace Cr
 {
     class NoCopy
     {
-        public:
-            constexpr NoCopy() = default;
+        protected:
+            NoCopy() = default;
             ~NoCopy() = default;
 
             NoCopy(const NoCopy& other) = delete;
@@ -14,13 +14,11 @@ namespace Cr
 
     class NoMove
     {
-        public:
-            constexpr NoMove() = default;
+        protected:
+            NoMove() = default;
             ~NoMove() = default;
 
             NoMove(NoMove&& other) = delete;
             NoMove& operator = (NoMove&& other) = delete;
     };
-
-    class NoValueSemantics : public NoCopy, public NoMove {};
 }

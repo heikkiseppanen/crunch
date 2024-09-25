@@ -1,8 +1,9 @@
 #pragma once
 
-#include "Crunch.hpp"
-#include "Shared/ClassUtility.hpp"
+#include "Crunch/Crunch.hpp"
+#include "Crunch/ClassUtility.hpp"
 
+#
 #include <GLFW/glfw3.h>
 
 #include <string>
@@ -10,25 +11,26 @@
 namespace Cr::Core
 {
 
-struct Window : public NoValueSemantics
+class Window : public NoCopy
 {
-    using Context = GLFWwindow*;
+    public:
+        Window() = delete;
+        Window(I32 width, I32 height, const std::string& title);
+        ~Window();
 
-    Context context = {};
+        inline void poll_events() const noexcept  { glfwPollEvents(); };
 
-    Window() = delete;
-    Window(i32 width, i32 height, const std::string& title);
-    ~Window();
+        [[nodiscard]]
+        inline bool should_close() const noexcept { return glfwWindowShouldClose(m_handle); };
+        inline void set_to_close() const noexcept { glfwSetWindowShouldClose(m_handle, GLFW_TRUE); };
 
-    inline void poll_events() const noexcept  { glfwPollEvents(); };
+        [[nodiscard]]
+        inline float get_time() const noexcept { return glfwGetTime(); }
 
-    [[nodiscard]]
-    inline bool should_close() const noexcept { return glfwWindowShouldClose(context); };
-    inline void set_to_close() const noexcept { glfwSetWindowShouldClose(context, GLFW_TRUE); };
+        inline GLFWwindow* get_native() const { return m_handle; }
 
-    [[nodiscard]]
-    inline float get_time() const noexcept { return glfwGetTime(); }
+    private:
+        GLFWwindow* m_handle = {};
+};
 
-}; // class Window
-
-} // namespace Cr
+} // namespace Cr::Core

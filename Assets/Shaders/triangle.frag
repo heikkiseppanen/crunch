@@ -9,7 +9,7 @@ layout(location = 0) out vec4 color_out;
 
 void main()
 {
-	vec3 color = texture(tex, texture_coordinate).xyz * gl_FragCoord.x / 512;
+    vec3 color = texture(tex, texture_coordinate).xyz * gl_FragCoord.x / 512;
 
-	color_out = vec4(color, 1.0f);
+    color_out = vec4(color, 1.0f);
 }

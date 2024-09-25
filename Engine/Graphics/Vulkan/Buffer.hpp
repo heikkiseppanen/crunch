@@ -3,7 +3,7 @@
 #include "Graphics/Vulkan/Vulkan.hpp"
 #include "Graphics/Vulkan/Allocator.hpp"
 
-#include "Shared/ClassUtility.hpp"
+#include "Crunch/ClassUtility.hpp"
 
 namespace Cr::Graphics::Vulkan
 {
@@ -11,24 +11,22 @@ namespace Cr::Graphics::Vulkan
 class Buffer : public NoCopy
 {
     public:
-        constexpr Buffer() : handle(), allocation(), allocator() {}
-
-        Buffer(VmaAllocator allocator, const VkBufferCreateInfo& buffer_info, const VmaAllocationCreateInfo& allocation_info);
+        Buffer() = default;
+        Buffer(VmaAllocator allocator, VkBufferUsageFlags usage, U64 size);
         ~Buffer();
 
-        Buffer(Buffer&& other);
-        Buffer& operator = (Buffer&& other);
+        Buffer(Buffer&& other) noexcept;
+        Buffer& operator = (Buffer&& other) noexcept;
 
-        void map(const void* begin, u64 size, u64 offset);
-        void flush(u64 begin = 0, u64 size = VK_WHOLE_SIZE);
+        void set_data(const void* data, U64 size, U64 offset);
+
+        [[nodiscard]] constexpr const VkBuffer& get_native() const { return m_handle; }
 
     private:
-        void destroy();
+        VkBuffer m_handle {};
 
-        VkBuffer handle;
-
-        VmaAllocation allocation;
-        VmaAllocator  allocator;
+        VmaAllocation m_allocation {};
+        VmaAllocator  m_allocator  {};
 };
 
 } // namespace Cr::Graphics::Vulkan
