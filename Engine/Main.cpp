@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
     {
         constexpr U32 WINDOW_WIDTH      = 1280;
         constexpr U32 WINDOW_HEIGHT     = 720;
-        constexpr F32 FOV               = 90.0f;
+        constexpr F32 FOV               = 80.0f;
         constexpr F32 ASPECT_RATIO      = F32(WINDOW_WIDTH) / F32(WINDOW_HEIGHT);
         constexpr F32 MOUSE_SENSITIVITY = 0.5f;
         constexpr F32 MOVEMENT_SPEED    = 2.0f;
@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
 
         // MESH 
 
-        const auto vertices = get_cube_vertices(1.0f, 0);
-        const auto indices  = get_cube_indices(0);
+        const auto vertices = get_quad_sphere_vertices(1.0f, 3);
+        const auto indices  = get_quad_sphere_indices(3);
 
         const VkDeviceSize vertices_size = sizeof(vertices[0]) * vertices.size();
         const VkDeviceSize indices_size  = sizeof(indices[0])  * indices.size();
@@ -51,7 +51,6 @@ int main(int argc, char *argv[])
         const U32 mesh_index_count = indices.size();
 
         {
-        
             // TODO Staging buffer reuse
             auto vertices_staging = vk.create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, vertices_size);
             auto indices_staging  = vk.create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, indices_size);
@@ -265,11 +264,9 @@ int main(int argc, char *argv[])
 
         // SCENE
 
-        Cr::Vec3f cube_position   { 1.0f, 0.0f, 0.0f };
-        // Cr::Vec3f sphere_position {-1.0f, 0.0f, 0.0f };
-
-        auto cube_matrix   = glm::translate(Cr::Mat4f{1.0f}, cube_position);
-        //auto sphere_matrix = glm::translate(Cr::Mat4f{1.0f}, sphere_position);
+        Cr::Vec3f cube_position { 1.0f, 0.0f, 0.0f };
+        Cr::Vec3f cube_scale    { 1.0f, 1.0f, 1.0f };
+        Cr::Vec3f cube_rotation { 0.0f, 0.0f, 0.0f };
 
         // CAMERA
 
@@ -324,11 +321,6 @@ int main(int argc, char *argv[])
             camera_right  = glm::normalize(glm::cross(-camera_target, Cr::VEC3F_UP));
             camera_up     = glm::normalize(glm::cross(camera_target, camera_right));
 
-            // std::cout << camera_forward.x << ' ' << camera_forward.y << ' ' << camera_forward.z << '\n';
-
-            // std::cout << camera_right.x << ' ' << camera_right.y << ' ' << camera_right.z << '\n';
-            // std::cout << camera_up.x << ' ' << camera_up.y << ' ' << camera_up.z << '\n' << '\n';
-
             const Cr::Mat4f perspective_matrix = glm::perspective(glm::radians(FOV), ASPECT_RATIO, 0.1f, 100.0f);
             const Cr::Mat4f view_matrix        = glm::lookAt(camera_position, camera_position - camera_target, camera_up);
             
@@ -336,13 +328,18 @@ int main(int argc, char *argv[])
                 .projected_view = perspective_matrix * view_matrix
             };
 
-            const F32 rotation_velocity = 50.0f * time_delta;
+            //const F32 rotation_velocity = 00.0f * time_delta;
 
-            cube_matrix   = glm::rotate(cube_matrix,   glm::radians( rotation_velocity), Cr::VEC3F_UP);
-            //sphere_matrix = glm::rotate(sphere_matrix, glm::radians(-rotation_velocity), Cr::VEC3F_UP);
+            cube_position.x = sinf(glfwGetTime());
+            cube_position.y = cosf(glfwGetTime());
+
+            cube_rotation.x += time_delta;
+            cube_rotation.y += time_delta;
 
             Cr::Graphics::PushConstantObject instance_data {
-                .model = cube_matrix
+                .position = Cr::Vec4f{cube_position, 1.0f},
+                .scale    = Cr::Vec4f{cube_scale,    1.0f},
+                .rotation = Cr::Quatf{cube_rotation},
             };
             
             // RENDER PIPELINE

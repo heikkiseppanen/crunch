@@ -2,54 +2,56 @@
 
 #include <array>
 
-namespace Cr
+namespace Cr::Graphics
 {
-    inline constexpr u32 QUAD_VERTEX_COUNT = 4;
-    inline constexpr u32 CUBE_SIDES = 6;
+    inline constexpr U32 QUAD_VERTEX_COUNT = 4;
+    inline constexpr U32 CUBE_SIDES = 6;
 
-    static void generate_quad_vertices(Vec3f top_left, Vec3f top_right, Vec3f bottom_left, u32 edge_vertices, std::vector<Vertex>& output) 
+    static void generate_quad_vertices(Vec3f top_left, Vec3f top_right, Vec3f bottom_left, U32 edge_vertices, std::vector<Vertex>& output) 
     {
-        const Vec3f step_right = (top_right   - top_left) / f32(edge_vertices - 1);
-        const Vec3f step_down  = (bottom_left - top_left) / f32(edge_vertices - 1);
+        const Vec3f step_right = (top_right   - top_left) / F32(edge_vertices - 1);
+        const Vec3f step_down  = (bottom_left - top_left) / F32(edge_vertices - 1);
 
-        const float uv_step { 1.0f / f32(edge_vertices - 1) };
+        const float uv_step { 1.0f / F32(edge_vertices - 1) };
 
-        for (u32 y = 0; y < edge_vertices; ++y)
+        const Vec3f normal = -glm::normalize(glm::cross(top_right - top_left, bottom_left - top_left));
+
+        for (U32 y = 0; y < edge_vertices; ++y)
         {
-            Vec3f position = top_left + (step_down * f32(y));
-            Vec2f uv { 0.0f, uv_step * f32(y) };  
+            Vec3f position = top_left + (step_down * F32(y));
+            Vec2f uv { 0.0f, uv_step * F32(y) };  
 
-            output.emplace_back(position, uv);
+            output.emplace_back(position, uv, normal);
 
-            for (u32 x = 0; x < edge_vertices - 2; ++x)
+            for (U32 x = 0; x < edge_vertices - 2; ++x)
             {
                 position += step_right;
                 uv.x     += uv_step;
-                output.emplace_back(position, uv);
+                output.emplace_back(position, uv, normal);
             }
 
-            position = top_right + (step_down * f32(y));
+            position = top_right + (step_down * F32(y));
             uv.x = 1.0f;
-            output.emplace_back(position, uv);
+            output.emplace_back(position, uv, normal);
         }
     }
 
-    static void generate_quad_indices(u32 edge_vertex_count, u32 start, std::vector<u32>& output) 
+    static void generate_quad_indices(U32 edge_vertex_count, U32 start, std::vector<U32>& output) 
     {
-        const u32 edge_count = edge_vertex_count - 1;
+        const U32 edge_count = edge_vertex_count - 1;
         
-        for (u32 y = 0; y < edge_count ; ++y)
+        for (U32 y = 0; y < edge_count ; ++y)
         {
-            const u32 i0 = start + y * edge_vertex_count;
-            const u32 i1 = i0 + 1;
-            const u32 i2 = i0 + edge_vertex_count;
-            const u32 i3 = i2 + 1;
+            const U32 i0 = start + y * edge_vertex_count;
+            const U32 i1 = i0 + 1;
+            const U32 i2 = i0 + edge_vertex_count;
+            const U32 i3 = i2 + 1;
 
             std::array quad_indices { i0, i1, i3, i0, i3, i2 };
 
-            for (u32 x = 0; x < edge_count ; ++x)
+            for (U32 x = 0; x < edge_count ; ++x)
             {
-                for (u32& index : quad_indices)
+                for (U32& index : quad_indices)
                 {
                     output.push_back(index++);
                 }
@@ -57,7 +59,7 @@ namespace Cr
         }
     }
 
-    std::vector<Vertex> get_cube_vertices(f32 size, u32 subdivision)
+    std::vector<Vertex> get_cube_vertices(F32 size, U32 subdivision)
     {
         const Vec3f min { -size / 2, -size / 2, -size / 2 }; 
         const Vec3f max {  size / 2,  size / 2,  size / 2 }; 
@@ -72,7 +74,7 @@ namespace Cr
         const Vec3f rdf { max.x, min.y, max.z };
         const Vec3f rdb { max.x, min.y, min.z };
 
-        const u32 edge_vertex_count = glm::pow(2, subdivision) + 1;
+        const U32 edge_vertex_count = glm::pow(2, subdivision) + 1;
 
         std::vector<Vertex> vertices;
         vertices.reserve(CUBE_SIDES * QUAD_VERTEX_COUNT);
@@ -87,15 +89,15 @@ namespace Cr
         return vertices;
     }
 
-    std::vector<u32> get_cube_indices(u32 subdivision)
+    std::vector<U32> get_cube_indices(U32 subdivision)
     {
-        const u32 edge_vertex_count = glm::pow(2, subdivision) + 1;
-        const u32 side_vertex_count = edge_vertex_count * edge_vertex_count;
+        const U32 edge_vertex_count = glm::pow(2, subdivision) + 1;
+        const U32 side_vertex_count = edge_vertex_count * edge_vertex_count;
 
-        std::vector<u32> indices;
+        std::vector<U32> indices;
         indices.reserve(36);
 
-        for (u32 side = 0; side < CUBE_SIDES; ++side)
+        for (U32 side = 0; side < CUBE_SIDES; ++side)
         {
             generate_quad_indices(edge_vertex_count, side * side_vertex_count, indices);
         }
@@ -103,21 +105,22 @@ namespace Cr
         return indices;
     }
 
-    std::vector<Vertex> get_quad_sphere_vertices(f32 size, u32 subdivision) 
+    std::vector<Vertex> get_quad_sphere_vertices(F32 size, U32 subdivision) 
     {
-        const f32 radius = size * 0.5f;
+        const F32 radius = size * 0.5f;
 
         std::vector<Vertex> vertices { get_cube_vertices(size, subdivision) };
 
         for (auto& vertex : vertices)
         {
             vertex.position = glm::normalize(vertex.position) * radius;
+            vertex.normal   = glm::normalize(vertex.position);
         }
 
         return vertices;
     }
 
-    std::vector<u32> get_quad_sphere_indices(u32 subdivision) 
+    std::vector<U32> get_quad_sphere_indices(U32 subdivision) 
     {
         return get_cube_indices(subdivision);
     }

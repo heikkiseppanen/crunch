@@ -29,31 +29,37 @@ Shader::Shader(VkDevice device, VkFormat swap_format, VkPipelineBindPoint bindpo
     // TODO Define from a provided Vertex layout but hardcode for now
     const VkVertexInputBindingDescription bind_descriptor{
         .binding   = 0,
-        .stride    = sizeof(float) * 5,
+        .stride    = sizeof(float) * 8,
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     };
 
-    const VkVertexInputAttributeDescription attribute_descriptors[2] {
-        {
+    const std::array attribute_descriptors {
+        VkVertexInputAttributeDescription {
             .location = 0,
             .binding  = 0,
             .format   = VK_FORMAT_R32G32B32_SFLOAT,
             .offset   = 0,
         },
-        {
+        VkVertexInputAttributeDescription {
             .location = 1,
             .binding  = 0,
             .format   = VK_FORMAT_R32G32_SFLOAT,
             .offset   = sizeof(float) * 3,
+        },
+        VkVertexInputAttributeDescription {
+            .location = 2,
+            .binding  = 0,
+            .format   = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset   = sizeof(float) * 5,
         }
     };
 
     const VkPipelineVertexInputStateCreateInfo vertex_input_state_info {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
         .vertexBindingDescriptionCount   = 1,
         .pVertexBindingDescriptions      = &bind_descriptor,
-        .vertexAttributeDescriptionCount = 2,
-        .pVertexAttributeDescriptions    = attribute_descriptors,
+        .vertexAttributeDescriptionCount = attribute_descriptors.size(),
+        .pVertexAttributeDescriptions    = attribute_descriptors.data(),
     };
 
     const VkPipelineInputAssemblyStateCreateInfo input_assembly_info{

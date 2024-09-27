@@ -28,7 +28,9 @@ enum class ShaderStage : U32
 // Has a 128-bytes minimum support
 struct PushConstantObject
 {
-    alignas(16) Mat4f model; // 64-bytes
+    alignas(16) Vec4f position;
+    alignas(16) Vec4f scale;
+    alignas(16) Quatf rotation;
 };
 
 struct UniformBufferObject
